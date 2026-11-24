@@ -1,0 +1,114 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { Button } from './ui/button';
+import { Sparkles, ArrowRight, PlayCircle, Check } from 'lucide-react';
+import { AIModelsMarquee } from './AIModelsMarquee';
+
+import { PhoneModel } from './PhoneModel';
+
+const FallingIcons = dynamic(
+  () => import('./FallingIcons').then((mod) => mod.FallingIcons),
+  { ssr: false }
+);
+
+export function Hero() {
+  return (
+    <section className="relative flex flex-col justify-start pt-[52px] sm:pt-[56px] lg:pt-[58px] pb-10 sm:pb-14 lg:pb-16 overflow-hidden bg-[#321367] isolate">
+
+      {/* 3D Physics Bouncing Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <FallingIcons />
+      </div>
+      {/* Soft gradient overlay for text readability */}
+      <div className=" hidden lg:block  absolute inset-0 z-[1] bg-gradient-to-r from-[#321367] via-[#321367]/80  to-transparent  w-[60%] pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 w-full flex flex-col lg:flex-row items-center lg:items-center justify-between gap-6 lg:gap-12">
+
+        {/* Left Content Area */}
+        <div className="flex flex-col items-start text-left w-full max-w-2xl py-0 relative z-10" >
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 sm:px-3.5  py-1.5 rounded-full border border-[#535353] bg-[#B1B1B1]/[0.12] backdrop-blur-md mb-2 sm:mb-3 shadow-lg max-w-full">
+            <Sparkles className="w-3.5 h-3.5 text-[#fc9a5d]" />
+            <span className="text-[11px] sm:text-sm text-white font-medium">
+              AI-Powered Business Growth Platform</span>
+          </div>
+
+          {/* Main Heading */}
+          <h1 className=" text-[38px] min-[400px]:text-[42px] sm:text-[50px] md:text-[58px]  lg:text-[68px]  leading-[1.08] font-bold tracking-tight text-white mb-4 drop-shadow-lg">
+            Grow your <br className="hidden sm:block" />
+            business with <span className="text-gradient pr-2">AI.</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-[14px] sm:text-base md:text-lg text-white/75 max-w-xl mb-6 sm:mb-7 font-medium leading-relaxed drop-shadow-md">
+            All the tools you need to create, publish, automate and grow your business — powered by advanced AI.
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col min-[480px]:flex-row items-stretch min-[480px]:items-center gap-3 sm:gap-4 mb-6 sm:mb-7 w-full min-[480px]:w-auto">
+            <Button variant="default" size="lg" className="w-full sm:w-auto text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-7 group font-semibold shadow-lg" asChild>
+              <Link href="/download">
+                Get Started Free
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" className="w-full sm:w-auto text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-7 bg-[#B1B1B1]/[0.12] hover:bg-[#B1B1B1]/[0.22] border border-[#535353] backdrop-blur-md font-semibold text-white shadow-lg">
+              <PlayCircle className="w-5 h-5 mr-2" />
+              Watch Demo
+            </Button>
+          </div>
+
+          {/* Features List */}
+          <div className="flex flex-wrap items-start gap-x-4 sm:gap-x-6 gap-y-3 text-[11px] sm:text-sm text-white/80 font-medium w-full ">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center">
+                <Check className="w-4 h-4 text-[#fc9a5d] stroke-[2.5]" />
+              </div>
+              No Credit Card Required
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center">
+                <Check className="w-4 h-4 text-[#fc9a5d] stroke-[2.5]" />
+              </div>
+              Setup in Minutes
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center">
+                <Check className="w-4 h-4 text-[#fc9a5d] stroke-[2.5]" />
+              </div>
+              Used by 10,000+ Businesses
+            </div>
+          </div>
+        </div>
+
+        {/* Right Content Area: 3D Phone Model */}
+        <div className="hidden lg:flex w-full lg:w-1/2 h-[260px] sm:h-[340px] lg:h-[440px] items-center justify-center relative z-20 pointer-events-none">
+          {/* <PhoneModel /> */}
+        </div>
+      </div>
+
+      {/* AI Models Marquee - directly on the dark screen below the checkmarks */}
+      <div className="relative z-10 w-full mt-4 sm:mt-6 mb-2 sm:mb-4">
+        <AIModelsMarquee />
+      </div>
+
+      {/* Bottom Curved Divider */}
+      <div className="absolute bottom-[0px] left-0 w-full overflow-hidden leading-none z-20 pointer-events-none translate-y-px">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 1440 60"
+          preserveAspectRatio="none"
+          className="relative block w-full h-[28px] sm:h-[38px] lg:h-[48px]"
+        >
+          <path
+            d="M0,60 Q720,0 1440,60 L1440,60 L0,60 Z"
+            className="fill-white"
+          />
+        </svg>
+      </div>
+    </section>
+  );
+}

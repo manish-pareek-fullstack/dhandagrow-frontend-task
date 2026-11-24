@@ -1,0 +1,696 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #fae8ff;
+  --color-primary-100: #f3cbf8;
+  --color-primary-200: #ecabf1;
+  --color-primary-300: #e58ce9;
+  --color-primary-400: #df6ce2;
+  --color-primary-500: #d84edb;
+  --color-primary-600: #BE32FF;
+  --color-primary-700: #a028d9;
+  --color-primary-800: #8220b0;
+  --color-primary-900: #65178a;
+  --color-primary-950: #491063;
+
+  --color-primary: #fc9a5d;
+  --color-primary-hover: #f0449b;
+  --color-accent: #be32ff;
+  --color-accent-strong: #7d36fa;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* Brand Colors */
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-coral: var(--brand-coral);
+  
+  /* Surfaces */
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: #1a1a1a;
+
+  /* Text Colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-glass: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+:root {
+  color-scheme: dark;
+  --font-roboto: 'Roboto', sans-serif;
+  --background: #071023;
+  --foreground: #FFFFFF;
+  
+  --brand-purple: #BE32FF;
+  --brand-pink: #F0449B;
+  --brand-coral: #FC9A5D;
+
+  --surface: #0B1630;
+  --surface-secondary: #101D3A;
+  --surface-elevated: #142343;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+
+  --card: #0B1630;
+  --card-foreground: #FFFFFF;
+  --border: rgba(255, 255, 255, 0.08);
+  --muted: #101D3A;
+  --muted-foreground: #94A3B8;
+}
+
+html.light {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  
+  --brand-purple: #8b5cf6;
+  --brand-pink: #d946ef;
+  --brand-coral: #f97316;
+
+  --surface: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-elevated: #f1f5f9;
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+  overflow-x: clip;
+  scrollbar-width: thin;
+  scrollbar-color: #BE32FF rgba(11, 22, 48, 0.3);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .text-brand-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(to right, #fc9a5d 0%, #fc9a5d 35%, #f0449b 65%, #be32ff 85%, #7d36fa 100%);
+  }
+
+  .glass-card {
+    background: rgba(11, 22, 48, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-panel {
+    background: var(--color-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-glass-border);
+  }
+  
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(to right, #fc9a5d 0%, #fc9a5d 35%, #f0449b 65%, #be32ff 85%, #7d36fa 100%);
+  }
+
+  .bg-brand-gradient {
+    background-image: linear-gradient(90deg, #FF7E38 0%, #FF2E93 50%, #C438FF 100%);
+  }
+}
+
+html:focus-within {
+  scroll-behavior: smooth;
+}
+
+@keyframes trust-logos-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.trust-logo-track {
+  display: flex;
+  width: max-content;
+  animation: trust-logos-scroll 28s linear infinite;
+  will-change: transform;
+}
+
+.trust-logo-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes feature-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.feature-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: feature-marquee-scroll 35s linear infinite;
+  will-change: transform;
+}
+
+.feature-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ai-models-scroll-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ai-models-scroll-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ai-models-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: ai-models-scroll-left 56s linear infinite;
+  will-change: transform;
+}
+
+.ai-models-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: ai-models-scroll-right 62s linear infinite;
+  will-change: transform;
+}
+
+.ai-models-marquee-left:hover,
+.ai-models-marquee-right:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trust-logo-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .trust-logo-group[aria-hidden='true'] {
+    display: none;
+  }
+
+  .trust-logo-group {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    padding-right: 0;
+  }
+
+  .feature-marquee-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .feature-marquee-group[aria-hidden='true'] {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   Modern Thin Colored Scrollbars (Custom Brand Gradient & Slim Profile)
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #BE32FF transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(11, 22, 48, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #BE32FF 0%, #F0449B 100%);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #d84edb 0%, #fc9a5d 100%);
+  box-shadow: 0 0 8px rgba(190, 50, 255, 0.7);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Specific custom-scrollbar utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #BE32FF transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(11, 22, 48, 0.25);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #BE32FF 0%, #F0449B 100%);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #d84edb 0%, #fc9a5d 100%);
+  box-shadow: 0 0 10px rgba(190, 50, 255, 0.8);
+}
+
+/* Antigravity Micro-Animations */
+@keyframes shimmerSweep {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(250%) skewX(-20deg); }
+}
+
+@keyframes floatSubtle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulseGlowOrange {
+  0%, 100% { 
+    box-shadow: 0 10px 25px -5px rgba(249, 115, 22, 0.35), 0 8px 10px -6px rgba(249, 115, 22, 0.2); 
+  }
+  50% { 
+    box-shadow: 0 20px 35px -5px rgba(249, 115, 22, 0.6), 0 10px 15px -3px rgba(249, 115, 22, 0.35); 
+  }
+}
+
+.animate-shimmer-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shimmerSweep 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlowOrange 2.8s ease-in-out infinite;
+}
+
+/* AI Camera & Laser Scanning Animations */
+@keyframes laserScanHorizontal {
+  0% { left: -5%; opacity: 0; }
+  15% { opacity: 0.95; }
+  85% { opacity: 0.95; }
+  100% { left: 105%; opacity: 0; }
+}
+
+@keyframes focusPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+@keyframes reticleRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes flashEffect {
+  0% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+.animate-laser-scan {
+  animation: laserScanHorizontal 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-focus-pulse {
+  animation: focusPulse 2.5s ease-in-out infinite;
+}
+
+.animate-reticle-spin {
+  animation: reticleRotate 20s linear infinite;
+}
+
+.animate-camera-flash {
+  animation: flashEffect 0.4s ease-out forwards;
+}
+
+
+
+/* Ensure select and option dropdown popups are always visible with high contrast */
+select {
+  color-scheme: dark;
+}
+
+html.light select {
+  color-scheme: light;
+}
+
+select option {
+  background-color: #0B1630;
+  color: #FFFFFF;
+}
+
+html.light select option {
+  background-color: #FFFFFF;
+  color: #0F172A;
+}
+
+
+.font-roboto, [data-font="roboto"] {
+  font-family: var(--font-roboto), 'Roboto', sans-serif !important;
+}
+
+.font-roboto * {
+  font-family: inherit;
+}
+
+/* Prevent text copying and selection across the site, preserved for inputs and textareas */
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+select {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Anti-Screenshot & Screen Capture Protection Guard */
+img, video, canvas, [role="img"] {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+  pointer-events: auto;
+}
+
+/* Hide content completely when printing or saving as PDF */
+@media print {
+  html, body {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
+/* ==========================================================================
+   Driver.js Custom Dark Neon Theme for DhandaGrow
+   ========================================================================== */
+.dhandagrow-driver-popover.driver-popover {
+  background: #0C1021 !important;
+  color: #F8FAFC !important;
+  border: 1px solid rgba(190, 50, 255, 0.45) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(190, 50, 255, 0.25) !important;
+  padding: 20px 22px !important;
+  max-width: 380px !important;
+  font-family: inherit !important;
+  backdrop-filter: blur(20px) !important;
+  z-index: 1000000000 !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-title {
+  color: #FFFFFF !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  letter-spacing: -0.01em !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-description {
+  color: #94A3B8 !important;
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+  margin-top: 9px !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-close-btn {
+  color: #64748B !important;
+  font-size: 18px !important;
+  transition: color 0.2s ease !important;
+  top: 12px !important;
+  right: 12px !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-close-btn:hover {
+  color: #F43F5E !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-footer {
+  margin-top: 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding-top: 14px !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-progress-text {
+  color: #E2E8F0 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  background: rgba(190, 50, 255, 0.18) !important;
+  border: 1px solid rgba(190, 50, 255, 0.35) !important;
+  padding: 3px 9px !important;
+  border-radius: 9999px !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-navigation-btns {
+  display: flex !important;
+  gap: 8px !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-prev-btn,
+.dhandagrow-driver-popover .driver-popover-next-btn {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 7px 15px !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-prev-btn {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #CBD5E1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-prev-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #FFFFFF !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-next-btn {
+  background: linear-gradient(135deg, #BE32FF 0%, #F0449B 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(190, 50, 255, 0.35) !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-next-btn:hover {
+  opacity: 0.95 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(190, 50, 255, 0.5) !important;
+}
+
+.dhandagrow-driver-popover .driver-popover-arrow-side-left {
+  border-left-color: #0C1021 !important;
+}
+.dhandagrow-driver-popover .driver-popover-arrow-side-right {
+  border-right-color: #0C1021 !important;
+}
+.dhandagrow-driver-popover .driver-popover-arrow-side-top {
+  border-top-color: #0C1021 !important;
+}
+.dhandagrow-driver-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: #0C1021 !important;
+}
+
+
+/* Mobile Responsive overrides for Driver.js Popover */
+@media (max-width: 640px) {
+  .dhandagrow-driver-popover.driver-popover {
+    max-width: calc(100vw - 28px) !important;
+    min-width: 270px !important;
+    padding: 14px 16px !important;
+    margin: 6px !important;
+    border-radius: 14px !important;
+  }
+  .dhandagrow-driver-popover .driver-popover-title {
+    font-size: 14.5px !important;
+  }
+  .dhandagrow-driver-popover .driver-popover-description {
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+  }
+  .dhandagrow-driver-popover .driver-popover-footer {
+    margin-top: 12px !important;
+    padding-top: 10px !important;
+  }
+  .dhandagrow-driver-popover .driver-popover-prev-btn,
+  .dhandagrow-driver-popover .driver-popover-next-btn {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* ==========================================================================
+   Google Translate Seamless Integration
+   Completely removes top banner bar, tooltips, frames, and background highlights
+   ========================================================================== */
+#google_translate_element,
+.goog-te-gadget,
+.goog-te-combo {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+/* Hide top banner bar (both legacy and modern Google Translate) */
+body > .skiptranslate,
+.skiptranslate:not(.goog-te-combo),
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+iframe.goog-te-banner-frame,
+iframe[class*="VIpgJd"],
+iframe[class*="skiptranslate"],
+iframe[id*=".container"],
+iframe[id*=":"],
+div[id*=".container"],
+div[id*=":"],
+.VIpgJd-ZVi9od-ORHb-OEVmcd,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+.VIpgJd-ZVi9od-ORHb {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  z-index: -9999 !important;
+}
+
+/* Prevent Google Translate from displacing html/body down */
+html,
+html body,
+body {
+  top: 0px !important;
+  position: static !important;
+  transform: none !important;
+}
+
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}

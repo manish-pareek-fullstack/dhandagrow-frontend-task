@@ -1,0 +1,447 @@
+"use client";
+
+import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from "@/components/auth/AuthProvider";
+import { 
+  Menu,
+  Search,
+  Bell, 
+  CheckCircle2, 
+  Circle, 
+  ChevronDown, 
+  User as UserIcon, 
+  Building2, 
+  Settings, 
+  LogOut, 
+  Sparkles, 
+  Phone, 
+  Mail,
+  ShieldCheck,
+  Headphones,
+  Compass
+} from "lucide-react";
+import { Logo } from "@/components/ui/Logo";
+import { userService } from "@/services/user.service";
+import { businessService } from "@/services/business.service";
+import { useSidebar } from "@/components/layout/SidebarContext";
+import { isMobileViewport, startDashboardTour } from "@/components/tour/DashboardTour";
+
+export function Navbar() {
+  const { user, logout, updateUser } = useAuth();
+  const { toggleSidebar } = useSidebar();
+  const router = useRouter();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch fresh profile on mount to ensure avatar/image is up-to-date
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFreshProfile = async () => {
+      if (!user) return;
+      try {
+        const fresh = await userService.getProfile();
+        if (fresh && isMounted) {
+          const freshImg = fresh.image || fresh.profileImageUrl || fresh.avatar || (fresh as any).picture;
+          if (freshImg && freshImg !== user?.image && freshImg !== user?.profileImageUrl) {
+            updateUser({
+              ...fresh,
+              image: freshImg,
+              profileImageUrl: freshImg
+            });
+          }
+        }
+      } catch (_) {
+        // Silently continue if backend fetch fails
+      }
+    };
+
+    fetchFreshProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, updateUser]);
+  
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(target)) {
+        setShowNotifications(false);
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
+        setShowProfileMenu(false);
+      }
+    }
+    
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setShowNotifications(false);
+        setShowProfileMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: "New Google Review", message: "Sanjay Verma left a 5-star review.", time: "5m ago", unread: true },
+    { id: 2, title: "Campaign Generated", message: "Summer Fashion Sale 2026 is ready.", time: "1h ago", unread: true },
+    { id: 3, title: "New Message", message: "Customer asked a question about delivery.", time: "2h ago", unread: false },
+  ]);
+
+  const markAsRead = (id: number) => {
+    setNotifications(notifications.map(n => n.id === id ? { ...n, unread: false } : n));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(notifications.map(n => ({ ...n, unread: false })));
+  };
+
+  const hasUnread = notifications.some(n => n.unread);
+
+  const isBusiness = user?.role === 'business' || user?.role === 'businessman' || user?.accountType === 'business';
+
+  // Resolve avatar URL from all possible backend property names
+  const avatarUrl = 
+    user?.image || 
+    user?.profileImageUrl || 
+    user?.avatar || 
+    (user as any)?.picture || 
+    (user as any)?.photoURL || 
+    (user as any)?.profile_image_url ||
+    (isBusiness ? user?.business_logo : null);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [avatarUrl]);
+
+  // If no profile image, compute initials (e.g. "Deepak Yadav" -> "DY", "Deepak" -> "DK")
+  const getInitials = (name?: string | null, email?: string | null): string => {
+    if (name && name.trim()) {
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        const first = parts[0].charAt(0).toUpperCase();
+        const last = parts[parts.length - 1].charAt(0).toUpperCase();
+        return `${first}${last}`;
+      } else if (parts.length === 1) {
+        const word = parts[0];
+        if (word.length >= 2) {
+          return (word.charAt(0) + word.charAt(word.length - 1)).toUpperCase();
+        }
+        return word.charAt(0).toUpperCase();
+      }
+    }
+    if (email && email.trim()) {
+      return email.charAt(0).toUpperCase();
+    }
+    return "U";
+  };
+
+  const bName =
+    user?.business_name ||
+    user?.businessName ||
+    (user as any)?.company_name ||
+    (typeof window !== "undefined" ? (localStorage.getItem("business_name") || localStorage.getItem("onboarding_business_name")) : null);
+
+  const displayName =
+    (isBusiness && bName) ? bName :
+    ((user?.name && !user.name.startsWith("User ") && user.name.trim() !== "User" && user.name.trim()) ||
+    (user?.fullName && !user.fullName.startsWith("User ") && user.fullName.trim() !== "User" && user.fullName.trim()) ||
+    (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '') ||
+    bName ||
+    user?.name ||
+    user?.fullName ||
+    (user?.email ? user.email.split('@')[0] : 'User'));
+
+  const initials = getInitials(displayName, user?.email);
+
+  return (
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-white/5 bg-[#071023] px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+      <button 
+        type="button" 
+        onClick={toggleSidebar}
+        className="-m-2.5 p-2.5 text-text-muted hover:text-white md:hidden cursor-pointer rounded-lg hover:bg-white/5 transition-colors"
+        title="Open Sidebar"
+      >
+        <span className="sr-only">Open sidebar</span>
+        <Menu className="h-6 w-6" aria-hidden="true" />
+      </button>
+
+      {/* Separator */}
+      <div className="h-6 w-px bg-border md:hidden" aria-hidden="true" />
+
+      <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+        <div className="flex flex-1 items-center justify-start pr-2 sm:pr-4">
+          <div className="relative w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl hidden sm:flex items-center">
+            <Search className="absolute left-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search...."
+              className="w-full h-9.5 pl-9 pr-4 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-brand-purple transition-all"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-x-3 sm:gap-x-4 lg:gap-x-6">
+          {!isMobileViewport() && (
+            <button
+              type="button"
+              onClick={() => startDashboardTour()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/25 text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              title="Launch Interactive Tour Guide"
+            >
+              <Compass className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Tour Guide</span>
+            </button>
+          )}
+
+          {/* Notifications Dropdown */}
+          <div className="relative" ref={notifDropdownRef}>
+            <button 
+              type="button" 
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#181132] hover:bg-[#201742] border border-[#5b21b6]/40 flex items-center justify-center text-white relative transition-all cursor-pointer focus:outline-none shadow-sm"
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowProfileMenu(false);
+              }}
+              title="Notifications"
+            >
+              <span className="sr-only">View notifications</span>
+              <Bell className="h-5 w-5 text-white" aria-hidden="true" />
+            </button>
+            
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] origin-top-right rounded-xl bg-surface-elevated py-1 shadow-2xl border border-border ring-1 ring-black/20 focus:outline-none animate-in fade-in slide-in-from-top-2 z-50">
+                <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-white/[0.02]">
+                  <h3 className="text-sm font-semibold text-white">Notifications</h3>
+                  <button className="text-xs text-brand-coral hover:text-brand-pink font-medium transition-colors" onClick={markAllAsRead}>
+                    Mark all as read
+                  </button>
+                </div>
+                <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                  {notifications.map((notif) => (
+                    <div 
+                      key={notif.id} 
+                      className={`px-4 py-3 hover:bg-surface-secondary cursor-pointer flex gap-3 transition-colors ${notif.unread ? 'bg-brand-purple/10' : ''}`}
+                      onClick={() => markAsRead(notif.id)}
+                    >
+                      <div className="mt-0.5">
+                        {notif.unread ? <Circle className="h-2.5 w-2.5 fill-brand-purple text-brand-purple" /> : <CheckCircle2 className="h-3 w-3 text-text-muted" />}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none text-white">{notif.title}</p>
+                        <p className="text-xs text-text-secondary">{notif.message}</p>
+                        <p className="text-[10px] text-text-muted">{notif.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-2.5 border-t border-border text-center bg-white/[0.01]">
+                  <button className="text-xs text-text-muted hover:text-white font-medium transition-colors" onClick={() => setShowNotifications(false)}>
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Clickable User Profile Dropdown Button matching Image 1 */}
+          <div className="relative" ref={profileDropdownRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowProfileMenu(!showProfileMenu);
+                setShowNotifications(false);
+              }}
+              className="flex items-center gap-3 pl-1.5 pr-4 py-1.5 sm:py-2 rounded-full bg-[#181132] hover:bg-[#201742] border border-[#5b21b6]/40 transition-all cursor-pointer group focus:outline-none shadow-sm"
+              aria-expanded={showProfileMenu}
+              aria-haspopup="true"
+              id="user-menu-button"
+            >
+              <div className="relative">
+                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border border-white/20 overflow-hidden shrink-0 group-hover:scale-105 transition-transform bg-black flex items-center justify-center">
+                  {avatarUrl && !imageError ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={displayName} 
+                      className="h-full w-full object-cover" 
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <img
+                      src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80"
+                      alt={user?.name || "User xyz"}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="hidden sm:flex sm:flex-col sm:items-start text-left">
+                <span className="text-sm sm:text-base font-normal leading-tight text-white group-hover:text-purple-300 transition-colors line-clamp-1 max-w-[150px]">
+                  {displayName}
+                </span>
+                <span className="text-xs text-slate-300 leading-tight font-normal mt-0.5">
+                  Business Profile
+                </span>
+              </div>
+
+              <ChevronDown 
+                className={`h-4 w-4 sm:h-5 sm:w-5 text-white transition-transform duration-200 stroke-[2.5] hidden sm:block ${
+                  showProfileMenu ? 'rotate-180' : ''
+                }`} 
+              />
+            </button>
+
+            {/* Profile Dropdown Menu */}
+            {showProfileMenu && (
+              <div className="absolute right-0 mt-2.5 w-72 max-w-[calc(100vw-2rem)] origin-top-right rounded-2xl bg-surface-elevated shadow-2xl border border-border ring-1 ring-black/40 focus:outline-none animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden divide-y divide-border">
+                {/* User Header Summary */}
+                <div className="p-4 bg-gradient-to-b from-white/[0.04] to-transparent">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-brand-gradient flex items-center justify-center text-white font-bold text-base tracking-wider shadow-inner border border-white/20 shrink-0 overflow-hidden">
+                      {avatarUrl && !imageError ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt={user?.name || "User"} 
+                          className="h-full w-full object-cover" 
+                          onError={() => setImageError(true)}
+                        />
+                      ) : (
+                        <span>{initials}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-bold text-white truncate">
+                          {displayName}
+                        </p>
+                      </div>
+                      <p className="text-xs text-text-muted truncate mt-0.5" title={user?.email || ""}>
+                        {user?.email || "No email available"}
+                      </p>
+                      {user?.contactNumber && (
+                        <p className="text-[11px] text-text-muted/80 truncate mt-0.5 flex items-center gap-1">
+                          <Phone className="w-2.5 h-2.5" />
+                          <span>{user.contactNumber}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-brand-purple/15 text-brand-pink border border-brand-purple/30">
+                      {isBusiness ? (
+                        <>
+                          <Building2 className="w-3 h-3" />
+                          <span>Business Profile</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserIcon className="w-3 h-3" />
+                          <span>User Profile</span>
+                        </>
+                      )}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                      <ShieldCheck className="w-3 h-3" />
+                      Active
+                    </span>
+                  </div>
+                </div>
+
+                {/* Navigation Items */}
+                <div className="py-1.5 px-1.5 space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      startDashboardTour();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-surface-secondary transition-colors group cursor-pointer text-left"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-text-muted group-hover:text-purple-400 group-hover:bg-purple-500/15 transition-colors border border-border/50">
+                      <Compass className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-sm font-medium text-white">Dashboard Tour</span>
+                      <span className="text-[11px] text-text-muted">Interactive walkthrough guide</span>
+                    </div>
+                  </button>
+
+                  <Link
+                    href="/settings"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-surface-secondary transition-colors group"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-text-muted group-hover:text-brand-purple group-hover:bg-brand-purple/15 transition-colors border border-border/50">
+                      <Settings className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-sm font-medium text-white">Profile & Settings</span>
+                      <span className="text-[11px] text-text-muted">Manage name, photo & details</span>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/subscription"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-surface-secondary transition-colors group"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-text-muted group-hover:text-amber-400 group-hover:bg-amber-400/15 transition-colors border border-border/50">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-sm font-medium text-white">Subscription & Plan</span>
+                      <span className="text-[11px] text-text-muted">View credits & billing</span>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/support"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-surface-secondary transition-colors group"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-surface flex items-center justify-center text-text-muted group-hover:text-emerald-400 group-hover:bg-emerald-400/15 transition-colors border border-border/50">
+                      <Headphones className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-sm font-medium text-white">Live Support</span>
+                      <span className="text-[11px] text-text-muted">Chat with support team</span>
+                    </div>
+                  </Link>
+                </div>
+
+                {/* Footer / Sign Out */}
+                <div className="p-1.5 bg-white/[0.01]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      logout();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors group"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400 group-hover:bg-rose-500/20 transition-colors border border-rose-500/20">
+                      <LogOut className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-medium">Log Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}

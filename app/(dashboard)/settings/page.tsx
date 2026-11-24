@@ -1,0 +1,1356 @@
+
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { 
+  Settings as SettingsIcon, 
+  Loader2, 
+  Check, 
+  User as UserIcon, 
+  Building2, 
+  Mail, 
+  Phone, 
+  Camera, 
+  Upload, 
+  Trash2, 
+  Globe, 
+  MapPin, 
+  ShieldCheck, 
+  KeyRound, 
+  Lock, 
+  Eye, 
+  EyeOff,
+  Sparkles,
+  AlertCircle,
+  Pencil
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { businessService } from "@/services/business.service";
+import { userService } from "@/services/user.service";
+import { cn } from "@/lib/utils";
+
+function InstagramIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+    </svg>
+  );
+}
+
+export default function SettingsPage() {
+  const { user, updateUser, refreshUser } = useAuth();
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  // Active tab: 'user' (Personal) or 'business' (Businessman)
+  const isDefaultBusiness = user?.role === 'business' || user?.accountType === 'business';
+  const [activeTab, setActiveTab] = useState<'user' | 'business'>(isDefaultBusiness ? 'business' : 'user');
+
+  // Edit Mode States (Locked in View Mode by default)
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [isEditingBusiness, setIsEditingBusiness] = useState(false);
+  const [lastSavedBusiness, setLastSavedBusiness] = useState<any>(null);
+
+  // User details state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Business details state
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState("");
+  const [businessCategory, setBusinessCategory] = useState("");
+  const [ownerFirstName, setOwnerFirstName] = useState("");
+  const [ownerLastName, setOwnerLastName] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [businessPhone, setBusinessPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [businessLogo, setBusinessLogo] = useState<string | null>(null);
+
+  // Status & Feedback
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [userUpdated, setUserUpdated] = useState(false);
+  const [userError, setUserError] = useState("");
+
+  const [isLoadingBusiness, setIsLoadingBusiness] = useState(false);
+  const [isUpdatingBusiness, setIsUpdatingBusiness] = useState(false);
+  const [businessUpdated, setBusinessUpdated] = useState(false);
+  const [businessError, setBusinessError] = useState("");
+
+  // Security / Password State
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  // File Input Refs
+  const userPhotoInputRef = useRef<HTMLInputElement>(null);
+  const businessLogoInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize User Fields from Auth Context
+  useEffect(() => {
+    if (user) {
+      const parts = (user.name || "").trim().split(/\s+/);
+      const derivedFirst = user.firstName || parts[0] || "";
+      const derivedLast = user.lastName || parts.slice(1).join(" ") || "";
+
+      setFirstName(derivedFirst);
+      setLastName(derivedLast);
+      setEmail(user.email || "");
+      setContactNumber(user.contactNumber || user.phone || "");
+      setProfileImage(user.image || user.avatar || null);
+
+      if (user.role === 'business' || user.accountType === 'business') {
+        setActiveTab('business');
+      }
+
+      setOwnerFirstName(derivedFirst);
+      setOwnerLastName(derivedLast);
+      setBusinessEmail(user.email || "");
+      setBusinessPhone(user.contactNumber || user.phone || "");
+    }
+  }, [user]);
+
+  // Fetch Fresh User Profile from Backend if available
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUserProfile = async () => {
+      setIsLoadingUser(true);
+      try {
+        const fresh = await userService.getProfile();
+        if (fresh && isMounted) {
+          if (fresh.firstName) setFirstName(fresh.firstName);
+          if (fresh.lastName) setLastName(fresh.lastName);
+          if (fresh.email) setEmail(fresh.email);
+          if (fresh.contactNumber || fresh.phone) setContactNumber(fresh.contactNumber || fresh.phone || "");
+          if (fresh.image || (fresh as any).profileImageUrl) {
+            setProfileImage(fresh.image || (fresh as any).profileImageUrl);
+          }
+        }
+      } catch (_) {
+        // If fetch fails, keep cached values from auth context
+      } finally {
+        if (isMounted) setIsLoadingUser(false);
+      }
+    };
+    fetchUserProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch Business Data from Backend if available
+  useEffect(() => {
+    const fetchBusinessDetails = async () => {
+      setIsLoadingBusiness(true);
+      try {
+        const data = await businessService.getMyBusiness();
+        if (data) {
+          setLastSavedBusiness(data);
+          if (data.id) setBusinessId(data.id);
+          const bTitle = data.name || (data as any).business_name || (data as any).businessName;
+          if (bTitle) setBusinessName(bTitle);
+          const bCat = data.category || (data as any).business_category || (data as any).industry;
+          if (bCat) setBusinessCategory(bCat);
+          if (data.contact_email) setBusinessEmail(data.contact_email);
+          if (data.contact_phone) setBusinessPhone(data.contact_phone);
+          if (data.website) setWebsite(data.website);
+          if (data.instagram) setInstagram(data.instagram);
+          if (data.location) setLocation(data.location);
+          if (data.description) setDescription(data.description);
+        }
+        if ((!data || !data.name) && user) {
+          const uBName = user.business_name || user.businessName || (user.name && !user.name.startsWith("User ") && user.name.trim() !== "User" ? user.name : "");
+          if (uBName) setBusinessName(uBName);
+        }
+      } catch (err: any) {
+        if (user) {
+          const uBName = user.business_name || user.businessName || (user.name && !user.name.startsWith("User ") && user.name.trim() !== "User" ? user.name : "");
+          if (uBName) setBusinessName(uBName);
+        }
+      } finally {
+        setIsLoadingBusiness(false);
+      }
+    };
+
+    fetchBusinessDetails();
+  }, []);
+
+  // Cancel User Editing & Revert changes
+  const cancelUserEdit = () => {
+    const parts = (user?.name || "").trim().split(/\s+/);
+    setFirstName(user?.firstName || parts[0] || "");
+    setLastName(user?.lastName || parts.slice(1).join(" ") || "");
+    setEmail(user?.email || "");
+    setContactNumber(user?.contactNumber || user?.phone || "");
+    setProfileImage(user?.image || user?.avatar || null);
+    setIsEditingUser(false);
+    setUserError("");
+  };
+
+  // Cancel Business Editing & Revert changes
+  const cancelBusinessEdit = () => {
+    if (lastSavedBusiness) {
+      setBusinessName(lastSavedBusiness.name || lastSavedBusiness.company_name || "");
+      setBusinessCategory(lastSavedBusiness.category || lastSavedBusiness.industry || "");
+      setOwnerFirstName(lastSavedBusiness.owner_first_name || "");
+      setOwnerLastName(lastSavedBusiness.owner_last_name || "");
+      setBusinessEmail(lastSavedBusiness.contact_email || lastSavedBusiness.email || "");
+      setBusinessPhone(lastSavedBusiness.contact_phone || lastSavedBusiness.phone || "");
+      setWebsite(lastSavedBusiness.website || "");
+      setInstagram(lastSavedBusiness.instagram || lastSavedBusiness.instagram_handle || "");
+      setLocation(lastSavedBusiness.location || "");
+      setDescription(lastSavedBusiness.description || "");
+      setBusinessLogo(lastSavedBusiness.logo_url || null);
+    } else if (user) {
+      const parts = (user.name || "").trim().split(/\s+/);
+      setBusinessName(user.businessName || "");
+      setBusinessCategory(user.businessCategory || "");
+      setOwnerFirstName(user.firstName || parts[0] || "");
+      setOwnerLastName(user.lastName || parts.slice(1).join(" ") || "");
+      setBusinessEmail(user.email || "");
+      setBusinessPhone(user.contactNumber || user.phone || "");
+      setBusinessLogo(user.business_logo || user.image || null);
+    }
+    setIsEditingBusiness(false);
+    setBusinessError("");
+  };
+
+  // Handle User Photo Upload
+  const handleUserPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUserError("Please upload a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUserError("Image size should be less than 5MB.");
+      return;
+    }
+
+    setUserError("");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setProfileImage(result);
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const res = await userService.uploadAvatar(file);
+      if (res?.image_url) {
+        setProfileImage(res.image_url);
+        updateUser({ image: res.image_url });
+      }
+    } catch (_) {
+      // Fallback: will persist data-url on Update Profile
+    }
+  };
+
+  // Handle Business Logo Upload
+  const handleBusinessLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setBusinessError("Please upload a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setBusinessError("Logo size should be less than 5MB.");
+      return;
+    }
+
+    setBusinessError("");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setBusinessLogo(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Remove Photo
+  const handleRemoveUserPhoto = () => {
+    setProfileImage(null);
+    if (userPhotoInputRef.current) userPhotoInputRef.current.value = "";
+  };
+
+  const handleRemoveBusinessLogo = () => {
+    setBusinessLogo(null);
+    if (businessLogoInputRef.current) businessLogoInputRef.current.value = "";
+  };
+
+  // Save User Profile
+  const handleUpdateUserProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setUserError("");
+
+    if (!firstName.trim()) {
+      setUserError("First name is required.");
+      return;
+    }
+
+    if (!email.trim() || !email.includes("@")) {
+      setUserError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+      // Persist to backend database
+      try {
+        await userService.updateProfile({
+          name: fullName,
+          fullName: fullName,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          contactNumber: contactNumber.trim(),
+          phone: contactNumber.trim(),
+          image: profileImage || undefined,
+          profileImageUrl: profileImage || undefined,
+          accountType: 'user',
+        });
+      } catch (backendErr: any) {
+        console.warn("Backend user profile sync:", backendErr?.message);
+      }
+      
+      // Update Auth context and local storage immediately
+      updateUser({
+        name: fullName,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        contactNumber: contactNumber.trim(),
+        phone: contactNumber.trim(),
+        image: profileImage || undefined,
+        accountType: 'user',
+      });
+
+      try {
+        await refreshUser();
+      } catch (_) {}
+
+      setUserUpdated(true);
+      setIsEditingUser(false);
+      setTimeout(() => setUserUpdated(false), 3500);
+    } catch (err: any) {
+      setUserError(err.message || "Failed to update profile.");
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
+
+  // Save Business Profile
+  const handleUpdateBusinessProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setBusinessError("");
+
+    if (!businessName.trim()) {
+      setBusinessError("Business Name is required.");
+      return;
+    }
+
+    if (!businessCategory.trim()) {
+      setBusinessError("Business Category is required.");
+      return;
+    }
+
+    setIsUpdatingBusiness(true);
+    try {
+      const payload = {
+        name: businessName.trim(),
+        category: businessCategory.trim(),
+        location: location.trim() || "India",
+        website: website.trim() || undefined,
+        instagram: instagram.trim() || undefined,
+        contact_email: businessEmail.trim() || email.trim() || undefined,
+        contact_phone: businessPhone.trim() || contactNumber.trim() || undefined,
+        description: description.trim() || undefined,
+      };
+
+      if (businessId) {
+        await businessService.updateBusiness(payload);
+      } else {
+        try {
+          const created = await businessService.createBusiness({
+            ...payload,
+            location: payload.location || "India",
+          });
+          if (created?.id) setBusinessId(created.id);
+        } catch (_) {
+          // If creation fails because it already exists, try update
+          await businessService.updateBusiness(payload);
+        }
+      }
+
+      // Sync with user auth context
+      const ownerFullName = `${ownerFirstName.trim()} ${ownerLastName.trim()}`.trim();
+      updateUser({
+        name: ownerFullName || businessName.trim(),
+        firstName: ownerFirstName.trim(),
+        lastName: ownerLastName.trim(),
+        email: businessEmail.trim() || user?.email,
+        contactNumber: businessPhone.trim() || user?.contactNumber,
+        phone: businessPhone.trim() || user?.phone,
+        businessName: businessName.trim(),
+        businessCategory: businessCategory.trim(),
+        role: 'business',
+        accountType: 'business',
+        image: businessLogo || user?.image,
+      });
+
+      setBusinessUpdated(true);
+      setIsEditingBusiness(false);
+      setTimeout(() => setBusinessUpdated(false), 3500);
+    } catch (err: any) {
+      setBusinessError(err.message || "Failed to update business details.");
+    } finally {
+      setIsUpdatingBusiness(false);
+    }
+  };
+
+  // Handle Change Password
+  const handleChangePassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPasswordError("");
+
+    if (!currentPassword) {
+      setPasswordError("Please enter your current password.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await userService.changePassword(currentPassword, newPassword, confirmPassword);
+      setPasswordChanged(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => setPasswordChanged(false), 3500);
+    } catch (err: any) {
+      setPasswordError(err.message || "Failed to change password. Please check your current password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Avatar initial (e.g. "Deepak Yadav" -> "DY")
+  const userInitial = (() => {
+    if (firstName && lastName) {
+      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    }
+    const fullName = user?.name || user?.fullName;
+    if (fullName && fullName.trim()) {
+      const parts = fullName.trim().split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+      } else if (parts.length === 1 && parts[0].length >= 2) {
+        return `${parts[0].charAt(0)}${parts[0].charAt(parts[0].length - 1)}`.toUpperCase();
+      }
+    }
+    return (firstName?.charAt(0) || user?.name?.charAt(0) || "U").toUpperCase();
+  })();
+  const businessInitial = (businessName?.charAt(0) || "B").toUpperCase();
+
+  return (
+    <div style={{ fontFamily: "var(--font-roboto), 'Roboto', sans-serif" }} className="w-full max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12 font-roboto">
+      {/* Page Header */}
+      <div>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-brand-purple/15 flex items-center justify-center text-brand-purple border border-brand-purple/30">
+            <SettingsIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-normal tracking-wide text-white">Profile Settings</h1>
+            <p className="text-sm text-text-muted mt-0.5 font-normal tracking-wide">Manage your personal identity, business details, and security.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Account Type Selector Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-2 rounded-2xl bg-surface border border-border">
+        <div className="flex items-center gap-1.5 p-1 bg-surface-elevated/70 rounded-xl border border-border/50">
+          <button
+            type="button"
+            onClick={() => setActiveTab('user')}
+            className={`flex items-center gap-2.5 px-4 py-2 rounded-lg text-sm font-normal tracking-wide transition-all cursor-pointer ${
+              activeTab === 'user'
+                ? 'bg-brand-gradient text-white shadow-md'
+                : 'text-text-muted hover:text-white hover:bg-surface-secondary'
+            }`}
+          >
+            <UserIcon className="w-4 h-4" />
+            <span>User Details</span>
+            {user?.role !== 'business' && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-normal ml-0.5">Current</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('business')}
+            className={`flex items-center gap-2.5 px-4 py-2 rounded-lg text-sm font-normal tracking-wide transition-all cursor-pointer ${
+              activeTab === 'business'
+                ? 'bg-brand-gradient text-white shadow-md'
+                : 'text-text-muted hover:text-white hover:bg-surface-secondary'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Business Details</span>
+            {user?.role === 'business' && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-normal ml-0.5">Current</span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 px-3 text-xs text-text-muted">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Active Role: <span className="text-white capitalize font-normal tracking-wide">{user?.role || 'User'}</span></span>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* TAB 1: USER DETAILS (First name, Last name, Email, Contact no, Image) */}
+      {/* ========================================================= */}
+      {activeTab === 'user' && (
+        isLoadingUser ? (
+          <Card className="bg-surface border-border shadow-xl p-12 text-center flex flex-col items-center justify-center min-h-[350px]">
+            <Loader2 className="w-8 h-8 text-brand-purple animate-spin mb-3" />
+            <p className="text-white text-sm font-normal tracking-wide">Loading profile details...</p>
+            <p className="text-text-muted text-xs mt-1">Retrieving your authenticated personal profile from backend.</p>
+          </Card>
+        ) : (
+        <Card className="bg-surface border-border shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-brand-purple/5 rounded-full blur-3xl pointer-events-none" />
+
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-xl font-normal tracking-wide text-white flex items-center gap-2">
+                  <UserIcon className="w-5 h-5 text-brand-purple" />
+                  Personal Profile Details
+                </CardTitle>
+                <CardDescription className="text-text-muted mt-1 font-normal tracking-wide">
+                  Update your name, email, contact number, and profile picture.
+                </CardDescription>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {isEditingUser ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-normal tracking-wide bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                    <Pencil className="w-3 h-3" />
+                    Editing Mode Active
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => setIsEditingUser(true)}
+                    className="bg-brand-gradient hover:opacity-90 text-white font-normal tracking-wide text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md shadow-brand-purple/20 cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Edit Profile</span>
+                  </Button>
+                )}
+
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal tracking-wide bg-brand-purple/10 text-brand-pink border border-brand-purple/20">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  User Account
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6 pt-2">
+            {/* Error Message */}
+            {userError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{userError}</span>
+              </div>
+            )}
+
+            {/* Profile Picture Upload & Preview Section */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 p-4 rounded-2xl bg-surface-elevated/50 border border-border">
+              <input
+                type="file"
+                ref={userPhotoInputRef}
+                onChange={handleUserPhotoChange}
+                accept="image/*"
+                className="hidden"
+                id="user-profile-photo-input"
+                disabled={!isEditingUser}
+              />
+
+              <div className="relative group">
+                <div className="h-24 w-24 rounded-full bg-brand-gradient flex items-center justify-center text-white font-normal text-3xl shadow-lg border-2 border-white/20 overflow-hidden ring-4 ring-brand-purple/20">
+                  {profileImage ? (
+                    <img
+                      src={profileImage}
+                      alt="User Profile"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{userInitial}</span>
+                  )}
+                </div>
+
+                {isEditingUser && (
+                  <button
+                    type="button"
+                    onClick={() => userPhotoInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 p-2 rounded-full bg-surface-elevated hover:bg-brand-purple text-white shadow-md border border-border group-hover:scale-110 transition-all cursor-pointer"
+                    title="Upload profile picture"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1.5 text-center sm:text-left flex-1">
+                {isEditingUser ? (
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => userPhotoInputRef.current?.click()}
+                      className="border-border text-white hover:bg-brand-purple/20 hover:border-brand-purple/50 gap-2 text-xs cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-brand-pink" />
+                      Change Photo
+                    </Button>
+
+                    {profileImage && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveUserPhoto}
+                        className="text-text-muted hover:text-rose-400 hover:bg-rose-500/10 gap-1.5 text-xs cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <span className="text-xs text-text-muted flex items-center gap-1.5 bg-white/[0.03] px-3 py-1.5 rounded-lg border border-border/40">
+                      <Lock className="w-3.5 h-3.5 text-text-muted" /> Photo locked in view mode. Click <span className="text-slate-200 font-normal">Edit Profile</span> to change.
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-text-muted">
+                  Allowed formats: PNG, JPG, or WebP. Max size: 5MB. Photo will appear in your top profile header.
+                </p>
+              </div>
+            </div>
+
+            {/* Profile Input Fields Form */}
+            <form onSubmit={handleUpdateUserProfile} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* First Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="firstName" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-brand-purple" />
+                    First Name <span className="text-rose-400">*</span>
+                  </Label>
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Enter your first name"
+                    required
+                    disabled={!isEditingUser}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-brand-purple transition-all",
+                      !isEditingUser && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Last Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="lastName" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-brand-purple" />
+                    Last Name
+                  </Label>
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Enter your last name"
+                    disabled={!isEditingUser}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-brand-purple transition-all",
+                      !isEditingUser && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Email Address */}
+                <div className="space-y-2">
+                  <Label htmlFor="userEmail" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-brand-pink" />
+                    Email Address <span className="text-rose-400">*</span>
+                  </Label>
+                  <Input
+                    id="userEmail"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    required
+                    disabled={!isEditingUser}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-brand-purple transition-all",
+                      !isEditingUser && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Contact Number */}
+                <div className="space-y-2">
+                  <Label htmlFor="contactNumber" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    Contact Number
+                  </Label>
+                  <Input
+                    id="contactNumber"
+                    type="tel"
+                    value={contactNumber}
+                    onChange={(e) => setContactNumber(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    disabled={!isEditingUser}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-brand-purple transition-all",
+                      !isEditingUser && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2">
+                {isEditingUser ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button 
+                      type="submit" 
+                      disabled={isUpdatingUser}
+                      className="bg-brand-gradient hover:opacity-95 text-white font-normal tracking-wide shadow-lg shadow-brand-purple/20 px-6 min-w-[150px] cursor-pointer"
+                    >
+                      {isUpdatingUser ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                          Saving...
+                        </>
+                      ) : userUpdated ? (
+                        <>
+                          <Check className="mr-2 h-4 w-4 text-white" /> 
+                          Profile Updated!
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={cancelUserEdit}
+                      disabled={isUpdatingUser}
+                      className="border-border text-slate-300 hover:text-white hover:bg-surface-elevated px-5 cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+
+                    {userUpdated && (
+                      <span className="text-xs font-medium text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                        <Check className="w-3.5 h-3.5" /> Changes saved to account & header!
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-border/40">
+                    <Button
+                      type="button"
+                      onClick={() => setIsEditingUser(true)}
+                      className="bg-brand-gradient hover:opacity-95 text-white font-normal tracking-wide shadow-lg shadow-brand-purple/20 px-6 py-2.5 rounded-xl cursor-pointer flex items-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      <span>Edit Profile</span>
+                    </Button>
+                    <span className="text-xs text-text-muted flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-text-muted" /> Locked in view mode. Click <span className="text-slate-200 font-normal">Edit Profile</span> to modify your details.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+        )
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 2: BUSINESS DETAILS (Businessman Profile) */}
+      {/* ========================================================= */}
+      {activeTab === 'business' && (
+        <Card className="bg-surface border-border shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-xl font-normal tracking-wide text-white flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-amber-400" />
+                  Business Profile Details
+                </CardTitle>
+                <CardDescription className="text-text-muted mt-1 font-normal tracking-wide">
+                  Manage your business identity, industry, contact info, and company logo.
+                </CardDescription>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {isEditingBusiness ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-normal tracking-wide bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                    <Pencil className="w-3 h-3" />
+                    Editing Mode Active
+                  </span>
+                ) : (
+                  <div className="p-[1.5px] rounded-full bg-gradient-to-r from-[#7d36fa] via-[#be32ff] to-[#fc9a5d] shadow-md shadow-purple-950/40">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingBusiness(true)}
+                      className="px-4 py-1.5 rounded-full bg-[#12121e] hover:bg-[#1a1a2c] text-white text-xs font-normal flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-white" />
+                      <span>Edit Business Details</span>
+                    </button>
+                  </div>
+                )}
+
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-normal tracking-wide bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Businessman Account
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6 pt-2">
+            {/* Error Message */}
+            {businessError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{businessError}</span>
+              </div>
+            )}
+
+            {/* Business Logo Upload & Preview Section */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5 p-4 rounded-2xl bg-surface-elevated/50 border border-border">
+              <input
+                type="file"
+                ref={businessLogoInputRef}
+                onChange={handleBusinessLogoChange}
+                accept="image/*"
+                className="hidden"
+                id="business-logo-input"
+                disabled={!isEditingBusiness}
+              />
+
+              <div className="relative group">
+                <div className="h-24 w-24 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white font-normal text-3xl shadow-lg border-2 border-white/20 overflow-hidden ring-4 ring-amber-500/20">
+                  {businessLogo ? (
+                    <img
+                      src={businessLogo}
+                      alt="Business Logo"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{businessInitial}</span>
+                  )}
+                </div>
+
+                {isEditingBusiness && (
+                  <button
+                    type="button"
+                    onClick={() => businessLogoInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 p-2 rounded-xl bg-surface-elevated hover:bg-amber-500 text-white shadow-md border border-border group-hover:scale-110 transition-all cursor-pointer"
+                    title="Upload Business Logo"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1.5 text-center sm:text-left flex-1">
+                {isEditingBusiness ? (
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => businessLogoInputRef.current?.click()}
+                      className="border-border text-white hover:bg-amber-500/20 hover:border-amber-500/50 gap-2 text-xs cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-amber-400" />
+                      Change Business Logo
+                    </Button>
+
+                    {businessLogo && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveBusinessLogo}
+                        className="text-text-muted hover:text-rose-400 hover:bg-rose-500/10 gap-1.5 text-xs cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <span className="text-xs text-text-muted flex items-center gap-1.5 bg-white/[0.03] px-3 py-1.5 rounded-lg border border-border/40">
+                      <Lock className="w-3.5 h-3.5 text-text-muted" /> Logo locked in view mode. Click <span className="text-slate-200 font-normal">Edit Business Details</span> to change.
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-text-muted">
+                  Upload your brand or company emblem. Appears on marketing materials and dashboard.
+                </p>
+              </div>
+            </div>
+
+            {/* Business Input Fields Form */}
+            <form onSubmit={handleUpdateBusinessProfile} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Business Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="businessName" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                    Business / Company Name <span className="text-rose-400">*</span>
+                  </Label>
+                  <Input
+                    id="businessName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="e.g. SevenUnique Enterprises"
+                    required
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Business Category */}
+                <div className="space-y-2">
+                  <Label htmlFor="businessCategory" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    Business Category / Industry <span className="text-rose-400">*</span>
+                  </Label>
+                  <Input
+                    id="businessCategory"
+                    value={businessCategory}
+                    onChange={(e) => setBusinessCategory(e.target.value)}
+                    placeholder="e.g. Retail, Fashion, E-commerce, Restaurant, Technology"
+                    required
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Owner First Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="ownerFirstName" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-brand-purple" />
+                    Contact Person First Name
+                  </Label>
+                  <Input
+                    id="ownerFirstName"
+                    value={ownerFirstName}
+                    onChange={(e) => setOwnerFirstName(e.target.value)}
+                    placeholder="First Name"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Owner Last Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="ownerLastName" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-brand-purple" />
+                    Contact Person Last Name
+                  </Label>
+                  <Input
+                    id="ownerLastName"
+                    value={ownerLastName}
+                    onChange={(e) => setOwnerLastName(e.target.value)}
+                    placeholder="Last Name"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Business Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="businessEmail" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-brand-pink" />
+                    Business Contact Email
+                  </Label>
+                  <Input
+                    id="businessEmail"
+                    type="email"
+                    value={businessEmail}
+                    onChange={(e) => setBusinessEmail(e.target.value)}
+                    placeholder="contact@mycompany.com"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Business Phone */}
+                <div className="space-y-2">
+                  <Label htmlFor="businessPhone" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    Business Contact / Phone No.
+                  </Label>
+                  {/* <Input
+                    id="businessPhone"
+                    type="tel"
+                    value={businessPhone}
+                    onChange={(e) => setBusinessPhone(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  /> */}
+
+                  <Input 
+                    id="businessPhone" 
+                    type="tel" 
+                    value={businessPhone} 
+                    onChange={(e) => {
+                      const numericValue = e.target.value.replace(/\D/g, "");
+                      if (numericValue.length <= 10) {
+                        setBusinessPhone(numericValue);
+                      }
+                    }} 
+                    placeholder="9876543210" // Cleaned up placeholder to match 10-digit format
+                    disabled={!isEditingBusiness} 
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )} 
+                  />
+
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Website */}
+                <div className="space-y-2">
+                  <Label htmlFor="website" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-sky-400" />
+                    Website
+                  </Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://example.com"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Instagram */}
+                <div className="space-y-2">
+                  <Label htmlFor="instagram" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <InstagramIcon className="w-3.5 h-3.5 text-rose-400" />
+                    Instagram Handle
+                  </Label>
+                  <Input
+                    id="instagram"
+                    value={instagram}
+                    onChange={(e) => setInstagram(e.target.value)}
+                    placeholder="@mybusiness"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+
+                {/* Location */}
+                <div className="space-y-2">
+                  <Label htmlFor="location" className="text-xs font-normal tracking-wide text-slate-300 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-brand-coral" />
+                    Location / City
+                  </Label>
+                  <Input
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. Mumbai, India"
+                    disabled={!isEditingBusiness}
+                    className={cn(
+                      "bg-surface-elevated/70 border-border focus:border-amber-400 transition-all",
+                      !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Business Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-xs font-normal tracking-wide text-slate-300">
+                  Business Description / Tagline
+                </Label>
+                <textarea
+                  id="description"
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your business, main products or services offered..."
+                  disabled={!isEditingBusiness}
+                  className={cn(
+                    "w-full rounded-md border border-border bg-surface-elevated/70 p-3 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-colors",
+                    !isEditingBusiness && "opacity-85 bg-surface-elevated/35 border-border/50 cursor-not-allowed text-slate-300"
+                  )}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2">
+                {isEditingBusiness ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button 
+                      type="submit" 
+                      disabled={isUpdatingBusiness}
+                      className="bg-brand-purple hover:bg-brand-purple/90 text-white font-normal tracking-wide shadow-lg shadow-brand-purple/25 px-6 min-w-[170px] rounded-xl cursor-pointer"
+                    >
+                      {isUpdatingBusiness ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                          Saving Business...
+                        </>
+                      ) : businessUpdated ? (
+                        <>
+                          <Check className="mr-2 h-4 w-4 text-white" /> 
+                          Business Details Saved!
+                        </>
+                      ) : (
+                        "Save Business Details"
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={cancelBusinessEdit}
+                      disabled={isUpdatingBusiness}
+                      className="border-border text-slate-300 hover:text-white hover:bg-surface-elevated px-5 cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+
+                    {businessUpdated && (
+                      <span className="text-xs font-medium text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                        <Check className="w-3.5 h-3.5" /> Business profile updated successfully!
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div></div>
+                  // <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-border/40">
+                  //   <Button
+                  //     type="button"
+                  //     onClick={() => setIsEditingBusiness(true)}
+                  //     className="bg-gradient-to-r from-amber-500 to-rose-500 hover:opacity-95 text-white font-semibold shadow-lg shadow-amber-500/20 px-6 py-2.5 rounded-xl cursor-pointer flex items-center gap-2"
+                  //   >
+                  //     <Pencil className="w-4 h-4" />
+                  //     <span>Edit Business Details</span>
+                  //   </Button>
+                  //   <span className="text-xs text-text-muted flex items-center gap-1.5">
+                  //     <Lock className="w-3.5 h-3.5 text-text-muted" /> Locked in view mode. Click <span className="text-slate-200 font-normal">Edit Business Details</span> to modify your company info.
+                  //   </span>
+                  // </div>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ========================================================= */}
+      {/* SECURITY / PASSWORD SETTINGS */}
+      {/* ========================================================= */}
+      <Card className="bg-surface border-border shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+            <KeyRound className="w-5 h-5 text-brand-purple" />
+            Security & Password
+          </CardTitle>
+          <CardDescription className="text-text-muted">
+            Update your account password to maintain security.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {passwordError && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="current-password" className="text-xs font-normal tracking-wide text-slate-300">
+                Current Password
+              </Label>
+              <div className="relative">
+                <Input 
+                  id="current-password" 
+                  type={showCurrentPass ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  className="bg-surface-elevated/70 border-border pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPass(!showCurrentPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white"
+                >
+                  {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password" className="text-xs font-normal tracking-wide text-slate-300">
+                  New Password
+                </Label>
+                <div className="relative">
+                  <Input 
+                    id="new-password" 
+                    type={showNewPass ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min. 6 chars)"
+                    className="bg-surface-elevated/70 border-border pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-new-password" className="text-xs font-normal tracking-wide text-slate-300">
+                  Confirm New Password
+                </Label>
+                <Input 
+                  id="confirm-new-password" 
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className="bg-surface-elevated/70 border-border"
+                />
+              </div>
+            </div>
+
+            <div className="pt-1 flex items-center gap-3">
+              <Button 
+                type="submit"
+                variant="outline" 
+                disabled={isChangingPassword}
+                className="border-border text-white hover:bg-surface-secondary"
+              >
+                {isChangingPassword ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Changing Password...</>
+                ) : passwordChanged ? (
+                  <><Check className="mr-2 h-4 w-4 text-emerald-400" /> Password Changed!</>
+                ) : (
+                  "Change Password"
+                )}
+              </Button>
+
+              {passwordChanged && (
+                <span className="text-xs text-emerald-400 font-medium">
+                  Your password has been updated securely.
+                </span>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

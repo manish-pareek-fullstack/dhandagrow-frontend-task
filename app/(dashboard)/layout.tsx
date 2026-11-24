@@ -1,0 +1,76 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Navbar } from "@/components/layout/Navbar";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
+import { Loader2 } from "lucide-react";
+import { SidebarProvider } from "@/components/layout/SidebarContext";
+import { AutomaticBrandKitModal } from "@/components/brand/AutomaticBrandKitModal";
+import { AutomaticSocialConnectivityModal } from "@/components/social/AutomaticSocialConnectivityModal";
+import { AutomaticPlansModal } from "@/components/plans/AutomaticPlansModal";
+import { DashboardPageBanner } from "@/components/layout/DashboardPageBanner";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("auth_redirect_after", window.location.pathname + window.location.search);
+      }
+      router.replace("/login/user");
+    }
+  }, [user, isLoading, router]);
+
+  // While checking auth, do not render dashboard content
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#090b14] text-white">
+        <Loader2 className="w-8 h-8 animate-spin text-[#f0449b] mb-3" />
+        <p className="text-sm text-slate-400">Verifying session...</p>
+      </div>
+    );
+  }
+
+  // If not authenticated, block dashboard access completely and redirect
+  if (!user) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#090b14] text-white">
+        <Loader2 className="w-8 h-8 animate-spin text-[#f0449b] mb-3" />
+        <p className="text-sm text-slate-400">Redirecting to login...</p>
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider>
+      <div className="h-screen flex overflow-hidden bg-[#071023]">
+        <Sidebar />
+        <div className="flex flex-col flex-1 w-0 min-w-0 overflow-hidden">
+          <Navbar />
+          <main className="flex-1 relative overflow-y-auto overflow-x-hidden focus:outline-none custom-scrollbar">
+            <div className="py-6 px-4 sm:px-6 md:px-8 max-w-[1600px] 2xl:max-w-[1720px] mx-auto w-full">
+              <OnboardingProvider>
+                <DashboardPageBanner />
+                {children}
+              </OnboardingProvider>
+            </div>
+          </main>
+        </div>
+
+        {/* Automatic Onboarding Modals for Businessman (Step 1, Step 2, Step 3) */}
+        <AutomaticBrandKitModal />
+        <AutomaticSocialConnectivityModal />
+        <AutomaticPlansModal />
+      </div>
+    </SidebarProvider>
+  );
+}

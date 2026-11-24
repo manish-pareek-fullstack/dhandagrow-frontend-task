@@ -1,0 +1,555 @@
+import api from "@/lib/api";
+
+export interface BackendUploadedImageItem {
+  image_id: string;
+  url: string;
+  filename: string;
+  angle: string;
+  file_size: number;
+  dimensions: { width: number; height: number };
+  content_type: string;
+}
+
+export interface BackendProductUploadResponse {
+  success: boolean;
+  session_id: string;
+  product_category?: string;
+  total_uploaded: number;
+  uploaded_images: BackendUploadedImageItem[];
+  message: string;
+}
+
+export interface BackendProductAnalysisData {
+  product_category: string;
+  product_type: string;
+  main_colors: string[];
+  shape_and_design: string[];
+  material_and_texture: string;
+  brand_logo_and_text?: string;
+  product_details: string[];
+  suitable_for_model: boolean;
+  recommended_model_type?: string;
+  recommended_styles: string[];
+  confidence_notes?: string;
+}
+
+export interface BackendProductAnalysisResponse {
+  success: boolean;
+  session_id: string;
+  analysis: BackendProductAnalysisData;
+  message: string;
+}
+
+export interface BackendEnhancedImageItem {
+  image_id: string;
+  source_image_id: string;
+  style: string;
+  url: string;
+  is_selected: boolean;
+  created_at: string;
+}
+
+export interface BackendProductEnhanceResponse {
+  success: boolean;
+  session_id: string;
+  total_variations: number;
+  enhanced_images: BackendEnhancedImageItem[];
+  message: string;
+}
+
+export interface BackendAIModelItem {
+  model_id: string;
+  name: string;
+  gender: string;
+  ethnicity: string;
+  thumbnail_url: string;
+  preview_url: string;
+  supported_categories: string[];
+  description: string;
+}
+
+export interface BackendPhotographyStyleItem {
+  id: string;
+  name: string;
+  description: string;
+  category_fit: string[];
+  requires_model: boolean;
+  pose?: string;
+  lighting: string;
+  preview_url?: string;
+}
+
+export interface BackendPreparePromptResponse {
+  success: boolean;
+  session_id: string;
+  prepared_prompt: string;
+  detected_language: string;
+  workflow_summary: Record<string, any>;
+  message: string;
+}
+
+export interface BackendPhotoshootGenerateResponse {
+  success: boolean;
+  session_id: string;
+  job_id: string;
+  status: string;
+  estimated_time_seconds: number;
+  message: string;
+}
+
+export interface BackendGeneratedImageItem {
+  image_id: string;
+  session_id: string;
+  style_applied: string;
+  url: string;
+  is_saved: boolean;
+  created_at: string;
+}
+
+export interface BackendJobStatusResponse {
+  success: boolean;
+  job_id: string;
+  session_id: string;
+  status: "pending" | "processing" | "completed" | "failed" | "partial";
+  progress_percent: number;
+  completed_images: number;
+  total_images: number;
+  result_images: BackendGeneratedImageItem[];
+  error?: string;
+  can_retry?: boolean;
+}
+
+export interface BackendPhotoshootResultsResponse {
+  success: boolean;
+  session_id: string;
+  status: string;
+  total_images: number;
+  use_model: boolean;
+  results: BackendGeneratedImageItem[];
+}
+
+export interface BackendGallerySessionItem {
+  session_id: string;
+  title: string;
+  product_category?: string;
+  product_type?: string;
+  use_model: boolean;
+  thumbnail_url?: string;
+  total_generated: number;
+  saved_count: number;
+  created_at: string;
+}
+
+export interface BackendGalleryResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  limit: number;
+  sessions: BackendGallerySessionItem[];
+}
+
+export interface BackendSaveImagesResponse {
+  success: boolean;
+  session_id: string;
+  saved_count: number;
+  saved_image_ids: string[];
+  message: string;
+}
+
+export class ProductPhotoshootService {
+  private baseRoute = "/api/v1/product-photoshoot";
+
+  /**
+   * Upload multiple product images for a photoshoot session
+   */
+  async uploadImages(params: {
+    files: File[];
+    category?: string;
+    angles?: string[];
+    sessionId?: string;
+  }): Promise<BackendProductUploadResponse> {
+    const formData = new FormData();
+    params.files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    if (params.category) {
+      formData.append("product_category", params.category);
+    }
+    if (params.sessionId) {
+      formData.append("session_id", params.sessionId);
+    }
+    if (params.angles && params.angles.length > 0) {
+      formData.append("angles", JSON.stringify(params.angles));
+    }
+
+    const response = await api.post<BackendProductUploadResponse>(
+      `${this.baseRoute}/upload`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Analyze uploaded product images for visual characteristics and recommended styles
+   */
+  async analyzeProduct(params: {
+    sessionId: string;
+    imageIds?: string[];
+  }): Promise<BackendProductAnalysisResponse> {
+    const response = await api.post<BackendProductAnalysisResponse>(
+      `${this.baseRoute}/analyze`,
+      {
+        session_id: params.sessionId,
+        image_ids: params.imageIds,
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Generate studio clarity & lighting enhancement variations
+   */
+  async enhanceImages(params: {
+    sessionId: string;
+    imageId?: string;
+    styles?: string[];
+  }): Promise<BackendProductEnhanceResponse> {
+    const response = await api.post<BackendProductEnhanceResponse>(
+      `${this.baseRoute}/enhance`,
+      {
+        session_id: params.sessionId,
+        image_id: params.imageId,
+        styles: params.styles,
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Select specific enhanced images for the photoshoot
+   */
+  async selectEnhancedImages(params: {
+    sessionId: string;
+    selectedImageIds: string[];
+  }): Promise<{ success: boolean; session_id: string; selected_image_ids: string[]; message: string }> {
+    const response = await api.post(
+      `${this.baseRoute}/${params.sessionId}/select-enhanced`,
+      {
+        selected_image_ids: params.selectedImageIds,
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Fetch available AI model gallery
+   */
+  async getModels(params?: {
+    gender?: string;
+    category?: string;
+  }): Promise<BackendAIModelItem[]> {
+    const response = await api.get<{ success: boolean; total: number; models: BackendAIModelItem[] }>(
+      `${this.baseRoute}/models`,
+      {
+        params: {
+          gender: params?.gender,
+          category: params?.category,
+        },
+      }
+    );
+    return response.data.models || [];
+  }
+
+  /**
+   * Fetch recommended photography styles based on product & model mode
+   */
+  async getStyles(params?: {
+    category?: string;
+    useModel?: boolean;
+    modelId?: string;
+    workflowMode?: string;
+  }): Promise<BackendPhotographyStyleItem[]> {
+    const response = await api.get<{ success: boolean; styles: BackendPhotographyStyleItem[] }>(
+      `${this.baseRoute}/styles`,
+      {
+        params: {
+          category: params?.category,
+          use_model: params?.useModel ?? false,
+          model_id: params?.modelId,
+          workflow_mode: params?.workflowMode,
+        },
+      }
+    );
+    return response.data.styles || [];
+  }
+
+  /**
+   * Prepare/synthesize photographic prompt specifications
+   */
+  async preparePrompt(params: {
+    sessionId: string;
+    customPrompt?: string;
+    language?: string;
+    useModel?: boolean;
+    modelId?: string;
+    selectedStyles?: string[];
+    workflowMode?: string;
+  }): Promise<BackendPreparePromptResponse> {
+    const response = await api.post<BackendPreparePromptResponse>(
+      `${this.baseRoute}/prepare-prompt`,
+      {
+        session_id: params.sessionId,
+        custom_prompt: params.customPrompt,
+        language: params.language || "en",
+        use_model: params.useModel ?? false,
+        model_id: params.modelId,
+        selected_styles: params.selectedStyles || [],
+        workflow_mode: params.workflowMode,
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Start async batch generation for final photoshoot
+   */
+  async generatePhotoshoot(params: {
+    sessionId: string;
+    selectedEnhancedImageIds?: string[];
+    productCategory?: string;
+    useModel: boolean;
+    modelId?: string;
+    avatarId?: string;
+    selectedStyles: string[];
+    customPrompt?: string;
+    imageCount?: number;
+    workflowMode?: string;
+    productImageUrl?: string;
+    enhancedImageUrl?: string;
+  }): Promise<BackendPhotoshootGenerateResponse> {
+    const primaryStyle = params.selectedStyles?.[0] || "Commercial Studio";
+    const stylesArray = params.selectedStyles && params.selectedStyles.length > 0
+      ? params.selectedStyles
+      : [primaryStyle];
+
+    const payload: Record<string, any> = {
+      session_id: params.sessionId,
+      sessionId: params.sessionId,
+      selected_enhanced_image_ids: params.selectedEnhancedImageIds,
+      product_category: params.productCategory,
+      use_model: params.useModel,
+      model_id: params.modelId || params.avatarId,
+      modelId: params.modelId || params.avatarId,
+      avatar_id: params.avatarId || params.modelId,
+      avatarId: params.avatarId || params.modelId,
+      selected_styles: stylesArray,
+      style: primaryStyle,
+      style_id: primaryStyle,
+      custom_prompt: params.customPrompt,
+      prompt: params.customPrompt,
+      instructions: params.customPrompt,
+      image_count: params.imageCount ?? 5,
+      workflow_mode: params.workflowMode,
+      product_image: params.productImageUrl,
+      product_image_url: params.productImageUrl,
+      original_image: params.productImageUrl,
+      original_image_url: params.productImageUrl,
+      enhanced_image: params.enhancedImageUrl,
+      enhanced_image_url: params.enhancedImageUrl,
+    };
+
+    try {
+      const response = await api.post<BackendPhotoshootGenerateResponse>(
+        `${this.baseRoute}/generate`,
+        payload
+      );
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("credit-update"));
+      }
+      return response.data;
+    } catch (err: any) {
+      // Fallback endpoint if product-photoshoot route returns 404 or 405
+      if (err?.response?.status === 404 || err?.response?.status === 405) {
+        try {
+          const resFallback = await api.post('/api/v1/fashion/photoshoot/generate', payload);
+          const raw = resFallback.data;
+          return {
+            success: true,
+            session_id: params.sessionId,
+            job_id: raw.generation_id || raw.job_id || raw.id || 'job_' + Date.now(),
+            status: 'processing',
+            estimated_time_seconds: 15,
+            message: raw.message || 'Generation started',
+            ...raw,
+          };
+        } catch (_) {}
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Poll generation job status
+   */
+  async getJobStatus(jobId: string): Promise<BackendJobStatusResponse> {
+    const response = await api.get<BackendJobStatusResponse>(
+      `${this.baseRoute}/jobs/${jobId}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get final results for a photoshoot session
+   */
+  async getSessionResults(sessionId: string): Promise<BackendPhotoshootResultsResponse> {
+    const response = await api.get<BackendPhotoshootResultsResponse>(
+      `${this.baseRoute}/${sessionId}/results`
+    );
+    return response.data;
+  }
+
+  /**
+   * Save selected images to user's permanent gallery
+   */
+  async saveSelectedImages(params: {
+    sessionId: string;
+    imageIds: string[];
+  }): Promise<BackendSaveImagesResponse> {
+    const response = await api.post<BackendSaveImagesResponse>(
+      `${this.baseRoute}/${params.sessionId}/save`,
+      {
+        image_ids: params.imageIds,
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Regenerate single photoshoot image
+   */
+  async regenerateImage(params: {
+    imageId: string;
+    style?: string;
+    customPrompt?: string;
+  }): Promise<any> {
+    const response = await api.post(
+      `${this.baseRoute}/images/${params.imageId}/regenerate`,
+      {
+        style: params.style,
+        custom_prompt: params.customPrompt,
+      }
+    );
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("credit-update"));
+    }
+    return response.data;
+  }
+
+  /**
+   * Delete single photoshoot image
+   */
+  async deleteImage(imageId: string): Promise<any> {
+    const response = await api.delete(
+      `${this.baseRoute}/images/${imageId}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Download individual image asset as a Blob and trigger save
+   */
+  async downloadImageBlob(imageId: string, defaultFilename: string = "photoshoot.jpg"): Promise<void> {
+    const response = await api.get(
+      `${this.baseRoute}/images/${imageId}/download`,
+      { responseType: "blob" }
+    );
+    const contentType = (response.headers["content-type"] as string) || "image/jpeg";
+    const blob = new Blob([response.data], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = defaultFilename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  /**
+   * Retry failed images from a partial or failed photoshoot generation job
+   */
+  async retryFailedJob(jobId: string): Promise<{
+    success: boolean;
+    job_id: string;
+    session_id: string;
+    status: string;
+    retrying_count: number;
+    message: string;
+  }> {
+    const response = await api.post(
+      `${this.baseRoute}/jobs/${jobId}/retry`
+    );
+    return response.data;
+  }
+
+  /**
+   * Fetch user's previous photoshoot sessions from gallery
+   */
+  async getGallery(params?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    useModel?: boolean;
+    sortBy?: "asc" | "desc";
+  }): Promise<BackendGalleryResponse> {
+    const response = await api.get<BackendGalleryResponse>(
+      `${this.baseRoute}/gallery`,
+      {
+        params: {
+          page: params?.page ?? 1,
+          limit: params?.limit ?? 12,
+          category: params?.category,
+          use_model: params?.useModel,
+          sort_by: params?.sortBy,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Fetch detailed metadata for a single photoshoot session
+   */
+  async getSession(sessionId: string): Promise<any> {
+    const response = await api.get(
+      `${this.baseRoute}/${sessionId}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Download entire photoshoot session as a ZIP archive
+   */
+  async downloadSessionZip(sessionId: string): Promise<void> {
+    const response = await api.get(
+      `${this.baseRoute}/${sessionId}/download`,
+      { responseType: "blob" }
+    );
+    const blob = new Blob([response.data], { type: "application/zip" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dhandagrow_photoshoot_${sessionId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+}
+
+export const productPhotoshootService = new ProductPhotoshootService();
+

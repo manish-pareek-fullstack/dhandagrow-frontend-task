@@ -1,0 +1,764 @@
+import api from '@/lib/api';
+import { User } from '@/types';
+import { OnboardingService } from '@/services/onboarding.service';
+
+export interface SignupRequest {
+  name: string;
+  phone?: string;
+  countryCode?: string;
+  country_code?: string;
+  email: string; // Mandatory email input on signup
+  password: string;
+  confirmPassword?: string;
+  verification_token?: string;
+  [key: string]: any;
+}
+
+export interface AuthSuccessResponse {
+  token?: string;
+  access_token?: string;
+  user?: User;
+  is_new_user?: boolean;
+  isNewUser?: boolean;
+  status?: string;
+  message?: string;
+  requiresOtp?: boolean;
+  verification_token?: string;
+  phone_verification_token?: string;
+  requires_role_selection?: boolean;
+  dashboard_route?: string;
+}
+
+export interface VerifyOtpRequest {
+  phone: string;
+  otp: string;
+  countryCode?: string;
+  country_code?: string;
+  email?: string;
+  channel?: OtpDeliveryChannel;
+  mode?: 'signup' | 'login';
+}
+
+function parseErrorDetail(error: any, fallbackMessage: string): { message: string; code?: string } {
+  const code = error.response?.data?.code;
+  const status = error.response?.status;
+
+  if (error.code === 'ECONNRESET' || error.message?.includes('socket hang up') || error.code === 'ECONNABORTED') {
+    return {
+      message: 'Server connection was interrupted. Please wait a moment and try again.',
+      code: 'ECONNRESET'
+    };
+  }
+  if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+    return {
+      message: 'Unable to connect to the authentication server. Please ensure the backend service is running.',
+      code: 'ECONNREFUSED'
+    };
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return {
+      message: 'Gateway error: The authentication service is temporarily unavailable. Please try again shortly.',
+      code: 'GATEWAY_ERROR'
+    };
+  }
+
+  const rawDetail = error.response?.data?.detail ?? error.response?.data?.message;
+
+  if (rawDetail) {
+    if (typeof rawDetail === 'string') {
+      const lower = rawDetail.toLowerCase();
+      if (lower.includes('fast2sms') || lower.includes('sms delivery failed') || lower.includes('sms gateway') || lower.includes('sms provider')) {
+        return {
+          message: 'SMS delivery service is temporarily busy. Please choose WhatsApp or try again in a few moments.',
+          code: 'SMS_GATEWAY_ERROR'
+        };
+      }
+      if (lower.includes('msg91') || lower.includes('whatsapp delivery failed') || lower.includes('whatsapp gateway')) {
+        return {
+          message: 'WhatsApp delivery service is temporarily busy. Please choose SMS or try again in a few moments.',
+          code: 'WHATSAPP_GATEWAY_ERROR'
+        };
+      }
+      if (lower === 'internal server error' || lower.includes('internal server error')) {
+        return {
+          message: 'Verification service encountered a temporary error. Please try again or request a new OTP.',
+          code: 'SERVER_500'
+        };
+      }
+      return { message: rawDetail, code };
+    }
+    if (Array.isArray(rawDetail)) {
+      return { message: rawDetail.map((d: any) => d.msg || JSON.stringify(d)).join(', '), code };
+    }
+    if (typeof rawDetail === 'object') {
+      return { message: JSON.stringify(rawDetail), code };
+    }
+  }
+
+  if (typeof error.response?.data === 'string' && error.response.data.trim() && !error.response.data.trim().startsWith('<')) {
+    const rawStr = error.response.data.trim();
+    if (rawStr.toLowerCase().includes('internal server error')) {
+      return {
+        message: 'Verification service encountered a temporary error. Please try again or request a new OTP.',
+        code: 'SERVER_500'
+      };
+    }
+    return { message: rawStr, code };
+  }
+
+  if (status === 500) {
+    return {
+      message: 'Verification service encountered a temporary error. Please try again or request a new OTP.',
+      code: 'SERVER_500'
+    };
+  }
+
+  const errMessage = error.message || '';
+  if (errMessage.toLowerCase().includes('internal server error')) {
+    return {
+      message: 'Verification service encountered a temporary error. Please try again or request a new OTP.',
+      code: 'SERVER_500'
+    };
+  }
+
+  return { message: errMessage || fallbackMessage, code };
+}
+
+export type OtpDeliveryChannel = 'sms' | 'whatsapp';
+
+export const authService = {
+  /**
+   * Sign in using mobile phone number or email and password
+   */
+  login: async (phoneOrIdentifier: string, password: string): Promise<{ user: User }> => {
+    try {
+      const cleanId = phoneOrIdentifier.trim();
+      const isEmail = cleanId.includes('@');
+
+      const payload: Record<string, any> = {
+        password,
+      };
+
+      if (isEmail) {
+        payload.email = cleanId.toLowerCase();
+        payload.username = cleanId.toLowerCase();
+      } else {
+        payload.phone_number = cleanId;
+        payload.phone = cleanId;
+        payload.mobile = cleanId;
+      }
+
+      const response = await api.post('/api/v1/auth/login', payload);
+      const user = response.data?.data?.user || response.data?.user;
+      if (!user) {
+        throw new Error('Authentication response did not include user data.');
+      }
+      return {
+        user,
+      };
+    } catch (error: any) {
+      const { message, code } = parseErrorDetail(error, 'Invalid mobile number or password.');
+      const err = new Error(message) as any;
+      err.code = code;
+      throw err;
+    }
+  },
+
+  /**
+   * User registration with required email, mobile number, name, and password
+   * (No email verification flow)
+   */
+  signup: async (data: SignupRequest): Promise<{ user?: User; message?: string; detail?: string }> => {
+    try {
+      const phoneStr = data.phone?.trim() || "";
+      const cc = data.countryCode || data.country_code || (phoneStr.startsWith("+") ? undefined : "+91");
+      const payload: Record<string, any> = {
+        ...data,
+        name: data.name?.trim() || "",
+        phone_number: phoneStr,
+        phone: phoneStr,
+        mobile: phoneStr,
+        country_code: cc,
+        email: data.email?.trim().toLowerCase() || "",
+        password: data.password,
+        confirmPassword: data.confirmPassword || data.password,
+      };
+      if (data.verification_token) {
+        payload.verification_token = data.verification_token;
+      }
+
+      const response = await api.post('/api/v1/auth/signup', payload);
+      const responseData = response.data?.data || response.data;
+      return {
+        user: responseData?.user,
+        message: responseData?.detail || responseData?.message || 'Account created successfully.',
+      };
+    } catch (error: any) {
+      const { message, code } = parseErrorDetail(error, 'Unable to create account. Please check your details.');
+      const err = new Error(message) as any;
+      err.code = code;
+      throw err;
+    }
+  },
+
+  /**
+   * Fetch current authenticated session
+   */
+  getCurrentUser: async (): Promise<User> => {
+    try {
+      const authRes = await api.get('/api/v1/auth/me');
+      const rawUser = authRes.data?.data || authRes.data?.user || authRes.data || {};
+
+      // Also merge profile data from users/me if available to preserve full name & contact details across refresh
+      let userProfile: any = {};
+      try {
+        const uRes = await api.get('/api/v1/users/me');
+        userProfile = uRes.data?.data || uRes.data?.user || uRes.data || {};
+      } catch (_) {}
+
+      const resolvedName =
+        rawUser.name ||
+        userProfile.name ||
+        rawUser.fullName ||
+        userProfile.fullName ||
+        rawUser.full_name ||
+        userProfile.full_name ||
+        (rawUser.first_name ? `${rawUser.first_name} ${rawUser.last_name || ''}`.trim() : '') ||
+        (userProfile.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : '') ||
+        (rawUser.firstName ? `${rawUser.firstName} ${rawUser.lastName || ''}`.trim() : '') ||
+        (userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim() : '') ||
+        rawUser.username ||
+        userProfile.username ||
+        '';
+
+      const parts = resolvedName ? resolvedName.split(/\s+/) : [];
+      const resolvedFirst = rawUser.firstName || userProfile.firstName || rawUser.first_name || userProfile.first_name || parts[0] || '';
+      const resolvedLast = rawUser.lastName || userProfile.lastName || rawUser.last_name || userProfile.last_name || parts.slice(1).join(' ') || '';
+      const resolvedPhone = rawUser.phone || userProfile.phone || rawUser.phone_number || userProfile.phone_number || rawUser.contactNumber || userProfile.contactNumber || rawUser.mobile || userProfile.mobile || '';
+      const resolvedEmail = rawUser.email || userProfile.email || '';
+
+      let onboardingDone = Boolean(rawUser.onboardingCompleted || rawUser.onboarding_completed || userProfile.onboardingCompleted);
+
+      // Verify business onboarding status using /api/v1/onboarding/status as instructed
+      try {
+        if (rawUser.role !== 'influencer') {
+          const isDone = await OnboardingService.isCompleted();
+          if (isDone) {
+            onboardingDone = true;
+          }
+        }
+      } catch (_) {}
+
+      const profileImg = rawUser.image || userProfile.image || rawUser.profileImageUrl || userProfile.profileImageUrl || rawUser.avatar || userProfile.avatar || rawUser.picture || rawUser.photoURL || rawUser.profile_image_url || null;
+
+      const hasPhone = Boolean((resolvedPhone).trim());
+      const isOAuth = Boolean(
+        rawUser.auth_provider === 'google' ||
+        rawUser.provider === 'google' ||
+        rawUser.auth_provider === 'facebook' ||
+        rawUser.provider === 'facebook' ||
+        rawUser.auth_provider === 'instagram' ||
+        rawUser.provider === 'instagram' ||
+        rawUser.auth_provider === 'linkedin' ||
+        rawUser.provider === 'linkedin' ||
+        rawUser.google_id ||
+        rawUser.googleId ||
+        (!hasPhone && resolvedEmail)
+      );
+
+      return {
+        ...userProfile,
+        ...rawUser,
+        id: rawUser.id || rawUser._id || userProfile.id || userProfile._id || '',
+        name: resolvedName,
+        fullName: resolvedName,
+        firstName: resolvedFirst,
+        lastName: resolvedLast,
+        email: resolvedEmail,
+        contactNumber: resolvedPhone,
+        phone: resolvedPhone,
+        role: rawUser.role || userProfile.role || 'user',
+        accountType: rawUser.accountType || userProfile.accountType || 'user',
+        image: profileImg || undefined,
+        profileImageUrl: profileImg || undefined,
+        phone_verified: isOAuth || !hasPhone ? true : (rawUser.phone_verified ?? true),
+        email_verified: rawUser.email_verified ?? rawUser.emailVerified ?? true,
+        onboardingCompleted: onboardingDone,
+        onboarding_step: rawUser.onboarding_step ?? 1,
+      };
+    } catch (error: any) {
+      const { message } = parseErrorDetail(error, 'Failed to fetch user session.');
+      throw new Error(message);
+    }
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/api/v1/auth/logout');
+  },
+
+  /**
+   * Verify 6-digit Mobile OTP
+   */
+  verifyOtp: async (
+    phoneOrObj: string | { phone: string; countryCode?: string; country_code?: string; email?: string; channel?: OtpDeliveryChannel; mode?: 'signup' | 'login' },
+    otpCode?: string,
+    emailArg?: string
+  ): Promise<AuthSuccessResponse> => {
+    try {
+      const rawPhone = typeof phoneOrObj === 'object' ? phoneOrObj.phone : phoneOrObj;
+      const rawCc = typeof phoneOrObj === 'object' ? (phoneOrObj.countryCode || phoneOrObj.country_code) : undefined;
+      const rawEmail = typeof phoneOrObj === 'object' ? phoneOrObj.email : emailArg;
+      const rawChannel = typeof phoneOrObj === 'object' ? phoneOrObj.channel : undefined;
+      const rawMode = typeof phoneOrObj === 'object' ? phoneOrObj.mode : undefined;
+      const rawOtp = otpCode || '';
+
+      const cleanPhone = (rawPhone || '').replace(/\s+/g, '').trim();
+      const payload: Record<string, any> = {
+        phone_number: cleanPhone,
+        phone: cleanPhone,
+        mobile: cleanPhone,
+        otp: rawOtp.trim(),
+      };
+      if (rawCc) {
+        payload.country_code = rawCc;
+        payload.countryCode = rawCc;
+      }
+      if (rawEmail && rawEmail.trim()) {
+        payload.email = rawEmail.trim().toLowerCase();
+      }
+      if (rawChannel) {
+        payload.channel = rawChannel;
+      }
+      if (rawMode) {
+        payload.mode = rawMode;
+      }
+
+      const response = await api.post('/api/v1/auth/verify-otp', payload);
+      const resData = response.data?.data || response.data;
+      const vToken = resData?.phone_verification_token || resData?.verification_token;
+      const authToken = resData?.access_token || resData?.token || resData?.accessToken;
+
+      return {
+        user: resData?.user,
+        is_new_user: Boolean(resData?.is_new_user ?? resData?.isNewUser),
+        status: resData?.status || 'success',
+        message: resData?.detail || resData?.message || 'Mobile OTP verified successfully.',
+        verification_token: vToken,
+        phone_verification_token: vToken,
+        requires_role_selection: resData?.requires_role_selection,
+        dashboard_route: resData?.dashboard_route,
+        token: authToken,
+        access_token: authToken,
+      };
+    } catch (error: any) {
+      const { message, code } = parseErrorDetail(error, 'Invalid or expired OTP. Please try again.');
+      const err = new Error(message) as any;
+      err.code = code;
+      err.status = error.response?.status;
+      err.response = error.response;
+      throw err;
+    }
+  },
+
+  /**
+   * Send Mobile OTP via SMS (Fast2SMS) or WhatsApp (MSG91)
+   */
+  sendOtp: async (
+    phoneOrObj: string | { phone: string; countryCode?: string; country_code?: string; email?: string; channel?: OtpDeliveryChannel },
+    emailArg?: string,
+    channelArg?: OtpDeliveryChannel
+  ): Promise<{ status: string; message: string; canonical_phone_number?: string; channel?: OtpDeliveryChannel }> => {
+    const rawPhone = typeof phoneOrObj === 'object' ? phoneOrObj.phone : phoneOrObj;
+    const rawCc = typeof phoneOrObj === 'object' ? (phoneOrObj.countryCode || phoneOrObj.country_code) : undefined;
+    const rawEmail = typeof phoneOrObj === 'object' ? phoneOrObj.email : emailArg;
+    const activeChannel: OtpDeliveryChannel = (typeof phoneOrObj === 'object' ? phoneOrObj.channel : channelArg) || 'sms';
+
+    try {
+      const cleanPhone = (rawPhone || '').replace(/\s+/g, '').trim();
+      const payload: Record<string, any> = {
+        phone_number: cleanPhone,
+        phone: cleanPhone,
+        mobile: cleanPhone,
+        channel: activeChannel,
+        delivery_method: activeChannel,
+        medium: activeChannel,
+        provider: activeChannel === 'whatsapp' ? 'msg91' : 'fast2sms',
+      };
+      if (rawCc) {
+        payload.country_code = rawCc;
+        payload.countryCode = rawCc;
+      }
+      if (rawEmail && rawEmail.trim()) {
+        payload.email = rawEmail.trim().toLowerCase();
+      }
+
+      const response = await api.post('/api/v1/auth/send-otp', payload);
+      const fallbackMsg = activeChannel === 'whatsapp'
+        ? 'Verification code sent to your WhatsApp via MSG91.'
+        : 'Verification code sent to your mobile phone via SMS.';
+
+      return {
+        status: response.data?.status || 'success',
+        message: response.data?.detail || response.data?.message || fallbackMsg,
+        canonical_phone_number: response.data?.canonical_phone_number,
+        channel: activeChannel,
+      };
+    } catch (error: any) {
+      const defaultErr = 'Failed to send verification code. Please wait before retrying.';
+      const { message, code } = parseErrorDetail(error, defaultErr);
+
+      let finalMsg = message;
+      let finalCode = code;
+
+      // Handle server 500 or gateway failure specifically for the active channel
+      if (
+        code === 'SERVER_500' ||
+        code === 'SMS_GATEWAY_ERROR' ||
+        error.response?.status === 500 ||
+        finalMsg.toLowerCase().includes('internal server error')
+      ) {
+        if (activeChannel === 'sms') {
+          finalMsg = 'SMS delivery is temporarily unavailable. Please choose WhatsApp or try again shortly.';
+          finalCode = 'SMS_GATEWAY_ERROR';
+        } else {
+          finalMsg = 'WhatsApp delivery is temporarily unavailable. Please choose SMS or try again shortly.';
+          finalCode = 'WHATSAPP_GATEWAY_ERROR';
+        }
+      }
+
+      const err = new Error(finalMsg) as any;
+      err.code = finalCode;
+      err.status = error.response?.status;
+      err.channel = activeChannel;
+      throw err;
+    }
+  },
+
+  /**
+   * Resend Mobile OTP (alias to sendOtp with channel support)
+   */
+  resendOtp: async (
+    phoneOrObj: string | { phone: string; countryCode?: string; country_code?: string; email?: string; channel?: OtpDeliveryChannel },
+    emailArg?: string,
+    channelArg?: OtpDeliveryChannel
+  ): Promise<{ status: string; message: string; canonical_phone_number?: string; channel?: OtpDeliveryChannel }> => {
+    return authService.sendOtp(phoneOrObj, emailArg, channelArg);
+  },
+
+  /**
+   * Persist user's selected role on post-signup onboarding
+   * Supported backend roles: 'businessman' | 'influencer'
+   */
+  selectRole: async (role: 'businessman' | 'influencer' | string): Promise<User> => {
+    try {
+      const response = await api.post('/api/v1/auth/select-role', { role });
+      const user = response.data?.user || response.data;
+      return user;
+    } catch (error: any) {
+      const { message, code } = parseErrorDetail(error, 'Failed to save role. Please try again.');
+      const err = new Error(message) as any;
+      err.code = code;
+      throw err;
+    }
+  },
+
+  /**
+   * Retrieve authoritative dashboard route mapping from backend
+   */
+  getDashboardRoute: async (): Promise<{ role?: string; dashboard_route: string; dashboard_name: string }> => {
+    try {
+      const response = await api.get('/api/v1/auth/dashboard-route');
+      return response.data;
+    } catch (error: any) {
+      const { message, code } = parseErrorDetail(error, 'Failed to determine dashboard route.');
+      const err = new Error(message) as any;
+      err.code = code;
+      throw err;
+    }
+  },
+
+  /**
+   * Google OAuth login and registration
+   */
+  googleLogin: async ({
+    code,
+    access_token,
+    id_token,
+    redirect_uri,
+    accountType = 'business',
+    mode = 'login',
+    phone,
+    countryCode,
+    country_code,
+    phone_verification_token,
+    verification_token,
+  }: {
+    code?: string;
+    access_token?: string;
+    id_token?: string;
+    redirect_uri?: string;
+    accountType?: string;
+    mode?: 'login' | 'signup';
+    phone?: string;
+    countryCode?: string;
+    country_code?: string;
+    phone_verification_token?: string;
+    verification_token?: string;
+  }): Promise<{
+    token?: string;
+    access_token?: string;
+    user: User;
+    message?: string;
+    exists?: boolean;
+    is_existing_user?: boolean;
+    user_exists?: boolean;
+    next_step?: string;
+    requires_role_selection?: boolean;
+  }> => {
+    try {
+      const endpoint = mode === 'signup' ? '/api/v1/auth/google/signup' : '/api/v1/auth/google/login';
+      const cleanPhone = (phone || '').trim();
+      const payload: Record<string, any> = {
+        code: code || undefined,
+        access_token: access_token || undefined,
+        id_token: id_token || undefined,
+        redirect_uri: redirect_uri || undefined,
+        redirectUri: redirect_uri || undefined,
+        accountType: accountType || 'business',
+        mode: mode || 'login',
+      };
+      if (cleanPhone) {
+        payload.phone_number = cleanPhone;
+        payload.phone = cleanPhone;
+        payload.mobile = cleanPhone;
+      }
+      const cc = countryCode || country_code;
+      if (cc) {
+        payload.country_code = cc;
+        payload.countryCode = cc;
+      }
+      const vToken = phone_verification_token || verification_token;
+      if (vToken) {
+        payload.phone_verification_token = vToken;
+        payload.verification_token = vToken;
+      }
+
+      const response = await api.post(endpoint, payload);
+      const raw = response.data;
+      const data = raw?.data || raw;
+      const user = data?.user || raw?.user;
+      if (!user) {
+        throw new Error('Google authentication response did not include user data.');
+      }
+
+      const normalizedUser: User = {
+        ...user,
+        id: user.id || user._id || '',
+        name: user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'User'),
+        fullName: user.fullName || user.name || (user.email ? user.email.split('@')[0] : 'User'),
+        firstName: user.firstName || (user.name ? user.name.split(' ')[0] : 'User'),
+        lastName: user.lastName || '',
+        email: user.email || '',
+        role: user.role || 'user',
+        accountType: user.accountType || accountType || 'business',
+        email_verified: user.email_verified ?? user.emailVerified ?? true,
+        phone_verified: user.phone_verified ?? false,
+        phone_number: user.phone_number || user.phone || cleanPhone || undefined,
+        phone: user.phone || user.phone_number || cleanPhone || undefined,
+        onboardingCompleted: Boolean(user.onboardingCompleted || user.onboarding_completed),
+        onboarding_step: user.onboarding_step ?? 1,
+      };
+
+      const isExisting = Boolean(
+        raw?.exists ?? 
+        data?.exists ?? 
+        raw?.is_existing_user ?? 
+        data?.is_existing_user ?? 
+        raw?.user_exists ?? 
+        data?.user_exists
+      );
+
+      return {
+        user: normalizedUser,
+        message: raw?.message || data?.message,
+        exists: isExisting,
+        is_existing_user: isExisting,
+        user_exists: isExisting,
+        next_step: raw?.next_step ?? data?.next_step,
+        requires_role_selection: raw?.requires_role_selection ?? data?.requires_role_selection,
+      };
+    } catch (error: any) {
+      const { message, code } = parseErrorDetail(error, 'An error occurred during Google authentication');
+      const err = new Error(message) as any;
+      err.code = code;
+      err.status = error.response?.status;
+      err.response = error.response;
+      throw err;
+    }
+  },
+
+  facebookLogin: async ({
+    access_token,
+    code,
+    accountType = 'user',
+    mode = 'login',
+  }: {
+    access_token?: string;
+    code?: string;
+    accountType?: string;
+    mode?: 'login' | 'signup';
+  }): Promise<{ user: User }> => {
+    try {
+      const endpoint = mode === 'signup' ? '/api/v1/auth/facebook/signup' : '/api/v1/auth/facebook/login';
+      const response = await api.post(endpoint, {
+        access_token: access_token || undefined,
+        code: code || undefined,
+        accountType: accountType || 'user',
+        mode: mode || 'login',
+      });
+      const raw = response.data;
+      const data = raw?.data || raw;
+      const user = data?.user || raw?.user;
+      if (!user) {
+        throw new Error('Facebook authentication response did not include user data.');
+      }
+
+      const normalizedUser: User = {
+        ...user,
+        id: user.id || user._id || '',
+        name: user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'Facebook User'),
+        fullName: user.fullName || user.name || (user.email ? user.email.split('@')[0] : 'Facebook User'),
+        firstName: user.firstName || (user.name ? user.name.split(' ')[0] : 'Facebook'),
+        lastName: user.lastName || '',
+        email: user.email || '',
+        role: user.role || 'user',
+        accountType: user.accountType || accountType || 'business',
+        email_verified: user.email_verified ?? user.emailVerified ?? true,
+        onboardingCompleted: Boolean(user.onboardingCompleted || user.onboarding_completed),
+        onboarding_step: user.onboarding_step ?? 1,
+      };
+
+      return {
+        user: normalizedUser,
+      };
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
+      throw new Error(error.message || 'An error occurred during Facebook login');
+    }
+  },
+
+  instagramLogin: async ({
+    access_token,
+    code,
+    accountType = 'business',
+    mode = 'login',
+  }: {
+    access_token?: string;
+    code?: string;
+    accountType?: string;
+    mode?: 'login' | 'signup';
+  }): Promise<{ user: User }> => {
+    try {
+      const endpoint = mode === 'signup' ? '/api/v1/auth/instagram/signup' : '/api/v1/auth/instagram/login';
+      const response = await api.post(endpoint, {
+        access_token: access_token || undefined,
+        code: code || undefined,
+        accountType: accountType || 'business',
+        mode: mode || 'login',
+      });
+      const raw = response.data;
+      const data = raw?.data || raw;
+      const user = data?.user || raw?.user;
+      if (!user) {
+        throw new Error('Instagram authentication response did not include user data.');
+      }
+
+      const normalizedUser: User = {
+        ...user,
+        id: user.id || user._id || '',
+        name: user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'Instagram User'),
+        fullName: user.fullName || user.name || (user.email ? user.email.split('@')[0] : 'Instagram User'),
+        firstName: user.firstName || (user.name ? user.name.split(' ')[0] : 'Instagram'),
+        lastName: user.lastName || '',
+        email: user.email || '',
+        role: user.role || 'user',
+        accountType: user.accountType || accountType || 'business',
+        email_verified: user.email_verified ?? user.emailVerified ?? true,
+        onboardingCompleted: Boolean(user.onboardingCompleted || user.onboarding_completed),
+        onboarding_step: user.onboarding_step ?? 1,
+      };
+
+      return {
+        user: normalizedUser,
+      };
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
+      throw new Error(error.message || 'An error occurred during Instagram login');
+    }
+  },
+
+  linkedinLogin: async ({
+    access_token,
+    code,
+    redirect_uri,
+    accountType = 'business',
+    mode = 'login',
+  }: {
+    access_token?: string;
+    code?: string;
+    redirect_uri?: string;
+    accountType?: string;
+    mode?: 'login' | 'signup';
+  }): Promise<{ user: User }> => {
+    try {
+      const endpoint = mode === 'signup' ? '/api/v1/auth/linkedin/signup' : '/api/v1/auth/linkedin/login';
+      const response = await api.post(endpoint, {
+        access_token: access_token || undefined,
+        code: code || undefined,
+        redirect_uri: redirect_uri || undefined,
+        accountType: accountType || 'business',
+        mode: mode || 'login',
+      });
+      const raw = response.data;
+      const data = raw?.data || raw;
+      const user = data?.user || raw?.user;
+      if (!user) {
+        throw new Error('LinkedIn authentication response did not include user data.');
+      }
+
+      const normalizedUser: User = {
+        ...user,
+        id: user.id || user._id || '',
+        name: user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'LinkedIn User'),
+        fullName: user.fullName || user.name || (user.email ? user.email.split('@')[0] : 'LinkedIn User'),
+        firstName: user.firstName || (user.name ? user.name.split(' ')[0] : 'LinkedIn'),
+        lastName: user.lastName || '',
+        email: user.email || '',
+        role: user.role || 'user',
+        accountType: user.accountType || accountType || 'business',
+        email_verified: user.email_verified ?? user.emailVerified ?? true,
+        onboardingCompleted: Boolean(user.onboardingCompleted || user.onboarding_completed),
+        onboarding_step: user.onboarding_step ?? 1,
+        linkedin_author_id: user.linkedin_author_id || data?.linkedin_author_id || raw?.linkedin_author_id || user.linkedinId || '',
+        linkedin_access_token: user.linkedin_access_token || data?.linkedin_access_token || raw?.linkedin_access_token || '',
+        linkedin_connected: user.linkedin_connected ?? data?.linkedin_connected ?? raw?.linkedin_connected ?? true,
+      };
+
+      return {
+        user: normalizedUser,
+      };
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
+      throw new Error(error.message || 'An error occurred during LinkedIn login');
+    }
+  },
+};

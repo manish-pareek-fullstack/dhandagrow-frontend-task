@@ -1,0 +1,547 @@
+"use client";
+import { resolveImageUrl } from "@/lib/imageUtils";
+
+import React, { useState } from "react";
+import {
+  Sparkles,
+  Download,
+  Check,
+  RotateCcw,
+  Trash2,
+  Maximize2,
+  CheckCircle2,
+  X,
+  Loader2,
+  Bookmark,
+  ArrowLeft,
+  Camera,
+  CheckSquare,
+  Square
+} from "lucide-react";
+import { PhotoshootFinalResult } from "./types";
+
+interface Step5ResultsProps {
+  results: PhotoshootFinalResult[];
+  selectedResultIds: string[];
+  isGenerating: boolean;
+  generationProgress: number;
+  generationStage: string;
+  productName: string;
+  onToggleSelect: (id: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
+  onDeleteResult: (id: string) => void;
+  onRegenerateResult: (id: string) => void;
+  onSaveToGallery: () => void;
+  onDownloadSelected: () => void;
+  onDownloadSingle: (item: PhotoshootFinalResult) => void;
+  onDownloadZip?: () => void;
+  onStartNewPhotoshoot: () => void;
+  onBackToEdit: () => void;
+  onRetryFailedJob?: () => void;
+  canRetryJob?: boolean;
+  isRetryingJob?: boolean;
+  partialNotice?: string | null;
+  errorMessage?: string | null;
+  onRetryGeneration?: () => void;
+}
+
+export const Step5Results: React.FC<Step5ResultsProps> = ({
+  results,
+  selectedResultIds,
+  isGenerating,
+  generationProgress,
+  generationStage,
+  productName,
+  onToggleSelect,
+  onSelectAll,
+  onDeselectAll,
+  onDeleteResult,
+  onRegenerateResult,
+  onSaveToGallery,
+  onDownloadSelected,
+  onDownloadSingle,
+  onDownloadZip,
+  onStartNewPhotoshoot,
+  onBackToEdit,
+  onRetryFailedJob,
+  canRetryJob,
+  isRetryingJob,
+  partialNotice,
+  errorMessage,
+  onRetryGeneration,
+}) => {
+  const [lightboxItem, setLightboxItem] = useState<PhotoshootFinalResult | null>(null);
+  const [gallerySavedNotice, setGallerySavedNotice] = useState(false);
+
+  const allSelected = results.length > 0 && selectedResultIds.length === results.length;
+
+  const handleSaveWithToast = () => {
+    onSaveToGallery();
+    setGallerySavedNotice(true);
+    setTimeout(() => setGallerySavedNotice(false), 3500);
+  };
+
+  return (
+    <div className="space-y-5 animate-in fade-in duration-300">
+      {/* Header Card - Option 3 Visual Match: Bold hataya, 22px Roboto & 4-color gradient button */}
+      <div style={{ backgroundColor: "#081226", fontFamily: "'Roboto', sans-serif" }} className="border border-[#1e2a4a] rounded-3xl p-5 sm:p-6 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span 
+              style={{ background: "linear-gradient(135deg, rgba(47, 18, 98, 0.5) 0%, rgba(20, 10, 45, 0.25) 100%)" }}
+              className="w-8 h-8 rounded-xl border border-[#8b5cf6]/40 text-purple-200 flex items-center justify-center shrink-0 shadow-sm"
+            >
+              <Check className="w-4 h-4 text-[#c084fc] stroke-[2.2]" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 
+                  style={{ fontSize: "22px", fontFamily: "'Roboto', sans-serif" }}
+                  className="font-normal text-white tracking-normal leading-tight"
+                >
+                  Commercial Photoshoot Results
+                </h2>
+                <span 
+                  style={{ background: "rgba(47, 18, 98, 0.45)" }}
+                  className="text-xs px-3 py-1 rounded-full text-purple-200 border border-[#8b5cf6]/35 font-normal"
+                >
+                  Production Ready
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1 font-normal">
+                High-resolution commercial photos created for {productName || "your product"}. Select, download, or save to library.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={onBackToEdit}
+              className="px-5 py-2.5 rounded-full bg-[#0c1630] hover:bg-[#152347] border border-[#26314c] text-slate-300 hover:text-white text-xs sm:text-sm font-normal flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Edit Instructions</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onStartNewPhotoshoot}
+              style={{
+                background: "linear-gradient(95deg, #7d36fa 0%, #9534fd 18%, #b233fe 36%, #c835ef 52%, #df3dbb 68%, #ee4795 82%, #f76f7b 92%, #fc9a5d 100%)",
+              }}
+              className="px-6 py-2.5 rounded-full text-white font-medium text-sm shadow-lg shadow-purple-600/35 hover:opacity-95 flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Camera className="w-4 h-4 text-white stroke-[2.2]" />
+              <span className="text-white font-medium">New Photoshoot</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading State Banner (When actively generating) */}
+      {isGenerating && (
+        <div className="bg-surface border border-brand-purple/40 rounded-2xl p-6 text-center space-y-4 shadow-xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-purple/5 via-brand-pink/5 to-transparent animate-pulse" />
+
+          <div className="relative z-10 space-y-3 max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-full bg-brand-purple/20 border border-brand-purple/40 flex items-center justify-center text-brand-pink mx-auto">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white">
+                {generationStage || "Generating AI Product Photoshoot..."}
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Rendering studio reflections, apparel draping, and commercial lighting.
+              </p>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-[#071023] rounded-full h-2 overflow-hidden border border-border">
+              <div
+                className="h-full bg-gradient-to-r from-brand-purple via-purple-500 to-brand-pink transition-all duration-300 rounded-full"
+                style={{ width: `${generationProgress}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-text-muted font-mono">
+              <span>Rendering variations</span>
+              <span>{generationProgress}% complete</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {gallerySavedNotice && (
+        <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 text-xs flex items-center justify-between shadow-xl animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-semibold">
+              Photoshoot saved to My Gallery &amp; Content Library successfully!
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setGallerySavedNotice(false)}
+            className="text-emerald-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Partial Generation / Retry Banner */}
+      {partialNotice && (
+        <div className="p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-2.5">
+            <RotateCcw className="w-4 h-4 text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold text-white block">Partial Generation Completed</span>
+              <span className="text-amber-300/90 text-[11px]">{partialNotice}</span>
+            </div>
+          </div>
+
+          {canRetryJob && onRetryFailedJob && (
+            <button
+              type="button"
+              disabled={isRetryingJob}
+              onClick={onRetryFailedJob}
+              className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isRetryingJob ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Retrying in background...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Retry Remaining Variations</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Batch Action Toolbar: Size baada kiya & color Image 2 ke anusaar */}
+      {results.length > 0 && (
+        <div style={{ backgroundColor: "#081226", fontFamily: "'Roboto', sans-serif" }} className="p-4 sm:p-5 rounded-3xl border border-[#1e2a4a] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl">
+          {/* Left: Select Controls */}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={allSelected ? onDeselectAll : onSelectAll}
+              className="text-xs sm:text-sm font-normal text-slate-300 hover:text-white flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              {allSelected ? (
+                <>
+                  <CheckSquare className="w-4 h-4 text-purple-300" />
+                  <span>Deselect All</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4 text-slate-400" />
+                  <span>Select All ({results.length})</span>
+                </>
+              )}
+            </button>
+
+            <span className="text-xs sm:text-sm text-slate-400 font-normal">
+              <span className="text-white font-medium">{selectedResultIds.length}</span> of {results.length} selected
+            </span>
+          </div>
+
+          {/* Right: Actions - 3 buttons size thoda baada & colors */}
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+            {onDownloadZip && (
+              <button
+                type="button"
+                onClick={onDownloadZip}
+                className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-full bg-[#0c1630] hover:bg-[#152347] border border-[#26314c] text-slate-200 hover:text-white text-xs sm:text-sm font-normal transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                title="Download all high-res photos as ZIP"
+              >
+                <Download className="w-4 h-4 text-purple-300" />
+                <span>Download All (ZIP)</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveWithToast}
+              className="px-5 py-2.5 sm:px-6 sm:py-3 rounded-full bg-[#2F1262]/60 hover:bg-[#2F1262] text-purple-200 hover:text-white text-xs sm:text-sm font-normal transition-all flex items-center gap-2 cursor-pointer border border-[#8b5cf6]/40 shadow-sm"
+            >
+              <Bookmark className="w-4 h-4" />
+              <span>Save to My Gallery</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error or Empty State */}
+      {!isGenerating && results.length === 0 && (
+        errorMessage ? (
+          <div className="p-8 sm:p-12 text-center rounded-2xl bg-rose-950/40 border border-rose-500/40 space-y-4 shadow-xl animate-in fade-in">
+            <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto">
+              <RotateCcw className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Generation Error</h3>
+              <p className="text-xs text-rose-200/90 max-w-md mx-auto mt-1 leading-relaxed">
+                {errorMessage}
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onBackToEdit}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Edit Instructions
+              </button>
+              {onRetryGeneration && (
+                <button
+                  type="button"
+                  onClick={onRetryGeneration}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#A855F7] to-[#EC4899] hover:opacity-95 text-white text-xs font-bold cursor-pointer shadow-lg shadow-pink-950/40 transition-all flex items-center gap-2"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Retry Generation</span>
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-12 text-center rounded-2xl bg-[#0B132B] border border-white/10 space-y-3 shadow-xl">
+            <Camera className="w-12 h-12 text-slate-500 mx-auto" />
+            <h3 className="text-base font-bold text-white">No Photoshoot Results Yet</h3>
+            <p className="text-xs text-text-muted max-w-sm mx-auto">
+              Click back to customize your instructions or start generation.
+            </p>
+            <button
+              type="button"
+              onClick={onBackToEdit}
+              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#A855F7] to-[#EC4899] text-white text-xs font-bold cursor-pointer shadow-md"
+            >
+              Back to Customize
+            </button>
+          </div>
+        )
+      )}
+
+      {/* Final Images Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {results.map((item, index) => {
+          const isSelected = selectedResultIds.includes(item.id);
+
+          if (item.isFailed) {
+            return (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-rose-500/30 bg-[#160d15] p-5 flex flex-col justify-between shadow-sm min-h-[280px]"
+              >
+                <div className="space-y-3">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                    <X className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Variation #{index + 1} Failed</h3>
+                    <p className="text-xs text-rose-300/80 mt-1">
+                      {item.errorMessage || "This variation timed out during neural generation."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-rose-500/20">
+                  <button
+                    type="button"
+                    onClick={() => onRegenerateResult(item.id)}
+                    disabled={item.isRegenerating}
+                    className="w-full py-1.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-bold border border-rose-500/40 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {item.isRegenerating ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Retrying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Retry Image</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={item.id}
+              className={`rounded-2xl border transition-all overflow-hidden flex flex-col justify-between group shadow-xl ${
+                isSelected
+                  ? "bg-[#131E42] border-2 border-[#BE32FF] ring-2 ring-[#BE32FF]/30 shadow-[0_0_20px_rgba(190,50,255,0.25)]"
+                  : "bg-[#0B132B] border-white/10 hover:border-white/20"
+              }`}
+            >
+              {/* Image Preview Container */}
+              <div className="relative aspect-square w-full bg-black/60 overflow-hidden select-none flex items-center justify-center">
+                {item.imageUrl && item.imageUrl.trim() ? (
+                  <img
+                    src={resolveImageUrl(item.imageUrl, item.prompt || item.title)}
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-text-muted">
+                    <Camera className="w-8 h-8 mb-1" />
+                    <span className="text-xs text-text-muted">Rendering visual...</span>
+                  </div>
+                )}
+
+                {/* Top Badges */}
+                <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onToggleSelect(item.id)}
+                      className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-gradient-to-r from-[#A855F7] to-[#EC4899] border-transparent text-white shadow-md"
+                          : "bg-black/60 backdrop-blur-md border-white/30 text-transparent hover:border-white"
+                      }`}
+                      title={isSelected ? "Deselect" : "Select"}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </button>
+
+                    <span className="px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-white text-[10px] font-bold border border-white/10">
+                      Variation #{index + 1}
+                    </span>
+                  </div>
+
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#2D164D] text-[#E085FF] border border-[#A855F7]/40 text-[10px] font-bold shadow">
+                    {item.resolution}
+                  </span>
+                </div>
+
+                {/* Bottom Overlay Info */}
+                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-end justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-white block leading-tight">
+                      {item.styleName}
+                    </span>
+                    {item.modelUsed && (
+                      <span className="text-[10px] text-brand-pink block font-medium">
+                        Model: {item.modelUsed}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setLightboxItem(item)}
+                    className="p-1.5 rounded-lg bg-black/70 hover:bg-[#BE32FF] text-white transition-colors cursor-pointer shadow"
+                    title="Fullscreen Lightbox"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Card Footer Actions */}
+              <div className="p-2.5 bg-[#071023] border-t border-white/10 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => onDownloadSingle(item)}
+                  className="flex-1 py-1.5 px-2.5 rounded-xl bg-[#0F1735] hover:bg-[#152047] text-white text-xs font-semibold border border-white/10 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#E085FF]" />
+                  <span>Download</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={item.isRegenerating}
+                  onClick={() => onRegenerateResult(item.id)}
+                  className="py-1.5 px-2.5 rounded-xl bg-[#0F1735] hover:bg-[#152047] text-slate-300 hover:text-white text-xs font-semibold border border-white/10 flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-40"
+                  title="Re-roll this specific variation"
+                >
+                  {item.isRegenerating ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#BE32FF]" />
+                  ) : (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  )}
+                  <span>Re-roll</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteResult(item.id)}
+                  className="p-1.5 rounded-xl bg-[#0F1735] hover:bg-red-500/20 text-slate-400 hover:text-red-300 border border-white/10 transition-colors cursor-pointer"
+                  title="Delete image"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lightbox Modal */}
+      {lightboxItem && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setLightboxItem(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] w-full bg-surface border border-border rounded-2xl p-4 overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div>
+                <span className="text-xs font-bold text-white block">
+                  {lightboxItem.title}
+                </span>
+                <span className="text-[10px] text-text-muted font-mono">
+                  {lightboxItem.resolution} • Commercial Grade
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onDownloadSingle(lightboxItem)}
+                  className="px-3 py-1 rounded-xl bg-gradient-to-r from-brand-purple to-brand-pink text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow hover:opacity-95"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightboxItem(null)}
+                  className="text-text-muted hover:text-white p-1 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="py-4 flex items-center justify-center max-h-[75vh] overflow-hidden">
+              <img
+                src={resolveImageUrl(lightboxItem.imageUrl, lightboxItem.prompt || lightboxItem.title)}
+                alt={lightboxItem.title}
+                className="max-h-[70vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
