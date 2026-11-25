@@ -14,6 +14,10 @@ export default function DownloadPage() {
   const [index, setIndex] = useState(0);
   const [stepPx, setStepPx] = useState(264); // default: 240 + 24 gap
   const [maxIndex, setMaxIndex] = useState(0);
+  const [cardWidth, setCardWidth] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 
   const cards = [
     { title: "AI Chat", desc: "Get instant answers and creative ideas", color: "bg-blue-600", image: "/images/about-analytics.jpg" },
@@ -32,24 +36,35 @@ export default function DownloadPage() {
     const wrapper = wrapperRef.current;
     const row = carouselRef.current;
     if (!wrapper || !row) return;
-    const firstCard = row.querySelector('[class*="min-w-[240px]"]') as HTMLElement;
-    if (!firstCard) return;
-    const gap = 24;
-    const step = firstCard.offsetWidth + gap;
-    setStepPx(step);
+    const gap = 16;
     const wrapperWidth = wrapper.clientWidth;
+    const visibleCount = wrapperWidth < 640 ? 1 : wrapperWidth < 1024 ? 2 : 3;
+    const slotWidth = Math.max(120, (wrapperWidth - gap * (visibleCount - 1)) / visibleCount);
+    const step = slotWidth + gap;
+    setCardWidth(slotWidth);
+    setStepPx(step);
     const rowWidth = row.scrollWidth;
     const maxTrans = Math.max(0, rowWidth - wrapperWidth);
     setMaxTranslate(maxTrans);
-    const visibleCount = Math.max(1, Math.floor(wrapperWidth / step));
-    setMaxIndex(Math.max(0, cards.length - visibleCount));
-  }, []);
+    const newMaxIndex = Math.max(0, cards.length - visibleCount);
+    setMaxIndex(newMaxIndex);
+    if (index > newMaxIndex) {
+      setIndex(newMaxIndex);
+    }
+  }, [index, cards.length]);
 
   useEffect(() => {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, [measure]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = () => setReduceMotion(mq.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const currentTranslate = Math.min(index * stepPx, maxTranslate);
 
@@ -363,14 +378,35 @@ export default function DownloadPage() {
             </p>
           </div>
           
-<div className="relative px-12" ref={wrapperRef}>
+<div className="relative px-4 sm:px-6 lg:px-14">
+              <button
+                className={`absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-20 hidden lg:flex ${
+                  index === 0 ? 'opacity-40 cursor-not-allowed' : ''
+                }`}
+                aria-label="Previous"
+                disabled={index === 0}
+                onClick={goPrev}
+              >
+                <ChevronLeft className="w-6 h-6 text-slate-700" />
+              </button>
+              <button
+                className={`absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-20 hidden lg:flex ${
+                  currentTranslate >= maxTranslate - 1 ? 'opacity-40 cursor-not-allowed' : ''
+                }`}
+                aria-label="Next"
+                disabled={currentTranslate >= maxTranslate - 1}
+                onClick={goNext}
+              >
+                <ChevronRight className="w-6 h-6 text-slate-700" />
+              </button>
+              <div ref={wrapperRef} className="overflow-x-hidden relative">
              <div
                ref={carouselRef}
-               className="flex justify-start items-start gap-6 py-10 px-4 transition-transform duration-500 ease-in-out"
-               style={{ transform: `translateX(-${currentTranslate}px)` }}
+               className={`flex justify-start items-start gap-4 py-10 ${reduceMotion ? 'transition-none' : 'transition-transform duration-500 ease-in-out'}`}
+               style={{ gap: 16, transform: `translateX(-${currentTranslate}px)` }}
              >
                {cards.map((item, idx) => (
-                 <div key={idx} className="flex flex-col items-center min-w-[240px] hidden md:flex shrink-0">
+                                    <div key={idx} className="flex flex-col items-center shrink-0" style={{ width: cardWidth || 240 }}>
                    <div className="w-[240px] h-[500px] bg-slate-900 rounded-[35px] border-[6px] border-black shadow-2xl relative mb-6 overflow-hidden group">
                      <div className="absolute top-0 w-full h-5 bg-black rounded-b-2xl z-10 mx-auto left-0 right-0 max-w-[100px]" />
                      <div className={`w-full h-full bg-slate-900 flex flex-col p-4 pt-10`}>
@@ -411,59 +447,32 @@ export default function DownloadPage() {
                    <h4 className="font-bold text-slate-900">{item.title}</h4>
                    <p className="text-[11px] text-slate-500 text-center w-[200px]">{item.desc}</p>
                  </div>
-               ))}
-               
-               {/* Mobile Fallback View (Just 1 card) */}
-               <div className="flex flex-col items-center min-w-[240px] md:hidden">
-                   <div className="w-[280px] h-[580px] bg-slate-900 rounded-[40px] border-[8px] border-black shadow-2xl relative mb-6 overflow-hidden">
-                     <div className="absolute top-0 w-full h-6 bg-black rounded-b-2xl z-10 mx-auto left-0 right-0 max-w-[120px]" />
-                     <div className={`w-full h-full bg-slate-900 flex flex-col p-4 pt-12`}>
-                        <div className="w-full flex items-center justify-between mb-4 relative z-10">
-                           <ChevronLeft className="w-5 h-5 text-white/50" />
-                           <span className="text-white text-sm font-semibold">AI Chat</span>
-                           <div className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 rounded-3xl bg-slate-800 border border-white/5 overflow-hidden flex items-center justify-center relative z-10">
-                           <img src="/images/about-analytics.jpg" alt="mock" className="w-full h-full object-cover opacity-60" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-                        </div>
-                        <div className="mt-4 flex gap-2 relative z-10">
-                           <div className="flex-1 bg-slate-800 rounded-xl h-12 flex items-center px-4 border border-slate-700">
-                             <span className="text-white/30 text-xs">Type a message...</span>
-                           </div>
-                           <div className={`w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center`}>
-                              <ArrowRight className="w-5 h-5 text-white" />
-                           </div>
-                        </div>
-                     </div>
-                   </div>
-                   <h4 className="font-bold text-slate-900">AI Chat</h4>
-                   <p className="text-xs text-slate-500 text-center">Get instant answers and creative ideas</p>
-                 </div>
-</div>
-              
-              {/* Arrow buttons - positioned at wrapper edges, outside card area */}
-              <button
-                className={`absolute left-0 top-[40%] -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-20 hidden md:flex ${
-                  index === 0 ? 'opacity-40 cursor-not-allowed' : ''
-                }`}
-                aria-label="Previous"
-                disabled={index === 0}
-                onClick={goPrev}
-              >
-                <ChevronLeft className="w-6 h-6 text-slate-700" />
-              </button>
-              <button
-                className={`absolute right-0 top-[40%] -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-20 hidden md:flex ${
-                  currentTranslate >= maxTranslate - 1 ? 'opacity-40 cursor-not-allowed' : ''
-                }`}
-                aria-label="Next"
-                disabled={currentTranslate >= maxTranslate - 1}
-                onClick={goNext}
-              >
-                <ChevronRight className="w-6 h-6 text-slate-700" />
-              </button>
+                ))}
+              <div className="lg:hidden flex justify-center gap-4 pt-4">
+                <button
+                  className={`w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 ${
+                    index === 0 ? 'opacity-40 cursor-not-allowed' : ''
+                  }`}
+                  aria-label="Previous"
+                  disabled={index === 0}
+                  onClick={goPrev}
+                >
+                  <ChevronLeft className="w-6 h-6 text-slate-700" />
+                </button>
+                <button
+                  className={`w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 ${
+                    currentTranslate >= maxTranslate - 1 ? 'opacity-40 cursor-not-allowed' : ''
+                  }`}
+                  aria-label="Next"
+                  disabled={currentTranslate >= maxTranslate - 1}
+                  onClick={goNext}
+                >
+                  <ChevronRight className="w-6 h-6 text-slate-700" />
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
         </div>
       </section>
 
