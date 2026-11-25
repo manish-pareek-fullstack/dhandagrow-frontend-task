@@ -164,22 +164,24 @@ export default function DownloadPage() {
                 </a>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 sm:gap-6 mt-5">
                 <div className="flex items-center gap-4 bg-white p-2 pr-6 rounded-2xl shadow-sm border border-slate-100">
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://su-ai.com/download" alt="QR Code" className="w-16 h-16 rounded-xl" />
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=https://su-ai.com/download" alt="QR Code" className="w-16 h-16 shrink-0 rounded-md bg-white object-contain p-1" />
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-slate-900">Scan QR Code</span>
                     <span className="text-xs text-slate-500">to Download App</span>
                   </div>
                 </div>
-                <div className="flex flex-col hidden sm:flex">
-                  <div className="flex -space-x-2 mb-1">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex -space-x-2">
                     <img src="https://i.pravatar.cc/100?img=1" className="w-8 h-8 rounded-full border-2 border-[#f8f9fc]" alt="user" />
                     <img src="https://i.pravatar.cc/100?img=2" className="w-8 h-8 rounded-full border-2 border-[#f8f9fc]" alt="user" />
                     <img src="https://i.pravatar.cc/100?img=3" className="w-8 h-8 rounded-full border-2 border-[#f8f9fc]" alt="user" />
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-600">Trusted by <span className="text-slate-900">1M+ users</span></span>
-                  <span className="text-[11px] text-slate-500">worldwide</span>
+                  <div className="text-center">
+  <span className="block text-[11px] font-semibold text-slate-600">Trusted by <span className="text-slate-900">1M+ users</span></span>
+  <span className="block text-[11px] text-slate-500">worldwide</span>
+</div>
                 </div>
               </div>
             </div>
