@@ -251,7 +251,7 @@ export function Footer() {
         <div className="border-t border-slate-100 pt-8 flex flex-wrap xl:flex-nowrap items-center justify-between gap-8">
 
           {/* App Download */}
-          <div className="flex items-center gap-4 bg-purple-50/50 p-3 rounded-2xl border border-purple-100/50">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-purple-50/50 p-3 rounded-2xl border border-purple-100/50">
             <Link href="/download" className="flex items-center gap-4 group">
               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm border border-purple-100/50 group-hover:scale-105 transition-transform">
                 <Image src="/logo.png" alt="Icon" width={30} height={30} className="w-8 h-8 object-contain" />
@@ -261,7 +261,7 @@ export function Footer() {
                 <div className="text-slate-500 text-[11px] md:text-xs">Download our mobile app and create on the go.</div>
               </div>
             </Link>
-            <div className="flex gap-2 ml-4">
+            <div className="flex gap-2 mt-2 md:mt-0 md:ml-4 ml-0 flex-wrap">
               <a
                 href="https://play.google.com/store/apps/details?id=com.dhandagrow"
                 target="_blank"
@@ -290,7 +290,7 @@ export function Footer() {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-8 lg:gap-12 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 lg:gap-12 text-center">
             <div>
               <div className="text-slate-900 font-bold text-lg">50K+</div>
               <div className="text-slate-500 text-[11px] uppercase tracking-wider font-semibold">Happy Users</div>
